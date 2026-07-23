@@ -5,6 +5,8 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "platforms": [
+      "android",
+      "ios",
       "web"
     ],
     "web": {
@@ -16,7 +18,9 @@
       }
     },
     "android": {
-      "package": "com.fisher88.novaopsai"
+      "package": "com.fisher88.novaopsai",
+      "usesCleartextTraffic": true,
+      "versionCode": 2
     }
   }
 }
