@@ -104,6 +104,19 @@ export default function App() {
   }
 
 
+  async function testApiConnection() {
+    try {
+      setStatus("Testing API: " + API);
+      const res = await fetch(API + "/");
+      const raw = await res.text();
+      setStatus("API test OK: " + raw.substring(0, 80));
+      Alert.alert("API test OK", raw.substring(0, 200));
+    } catch (e) {
+      setStatus("API test failed: " + e.message + " | API: " + API);
+      Alert.alert("API test failed", e.message + "\n\nAPI: " + API);
+    }
+  }
+
   async function api(path, method = "GET", body, activeToken = token) {
     console.log("CALLING API:", API + path);
     const res = await fetch(API + path, {
