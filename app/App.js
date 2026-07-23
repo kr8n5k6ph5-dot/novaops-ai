@@ -501,6 +501,10 @@ export default function App() {
               <Text style={styles.buttonText}>Create free account</Text>
             </Pressable>
 
+          <Pressable style={styles.button} onPress={testApiConnection}>
+            <Text style={styles.buttonText}>Test API Connection</Text>
+          </Pressable>
+
             <Pressable style={styles.secondaryButton} onPress={login}>
               <Text style={styles.secondaryText}>Sign in</Text>
             </Pressable>
