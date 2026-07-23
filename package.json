@@ -1,0 +1,9 @@
+{
+  "name": "novaops-ai-platform",
+  "private": true,
+  "scripts": {
+    "server": "cd server && npm run dev",
+    "web": "cd app && npx expo start --web",
+    "app": "cd app && npx expo start"
+  }
+}
