@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet, Alert, Linking } from "react-native";
 
-const API = "http://192.168.4.27:4000";
+const API = "https://3e52b9beb8b533.lhr.life";
 
 export default function App() {
   const [token, setToken] = useState("");
