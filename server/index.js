@@ -597,8 +597,8 @@ saveDb();
         mode: "subscription",
         payment_method_types: ["card"],
         line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
-        success_url: "http://192.168.4.27:4000/stripe/success?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url: "http://192.168.4.27:4000/stripe/cancel",
+        success_url: "https://novaops-ai-app.onrender.com/stripe/success?session_id={CHECKOUT_SESSION_ID}",
+        cancel_url: "https://novaops-ai-app.onrender.com/stripe/cancel",
         metadata: { userId: req.user.id }
       });
 
