@@ -493,6 +493,163 @@ saveDb();
     }
   });
 
+
+  app.post("/ai/ask", auth, function(req, res) {
+    try {
+      const question = String((req.body && req.body.question) || "").trim();
+      const q = question.toLowerCase();
+
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+      const employees = selectAll("SELECT * FROM employees WHERE userId = ?", [req.user.id]);
+      const orders = selectAll("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const lowStock = inventory.filter(function(item) {
+        return Number(item.quantity || 0) <= Number(item.reorderPoint || 0);
+      });
+
+      const criticalStock = inventory.filter(function(item) {
+        return Number(item.quantity || 0) <= Math.max(1, Number(item.reorderPoint || 0) / 2);
+      });
+
+      const openOrders = orders.filter(function(order) {
+        return !["received", "completed", "cancelled"].includes(String(order.status || "").toLowerCase());
+      });
+
+      const missingCostItems = inventory.filter(function(item) {
+        return Number(item.cost || 0) <= 0;
+      });
+
+      const inventoryValue = inventory.reduce(function(sum, item) {
+        return sum + Number(item.quantity || 0) * Number(item.cost || 0);
+      }, 0);
+
+      const weeklyPayrollEstimate = employees.reduce(function(sum, employee) {
+        return sum + Number(employee.payRate || 0) * 40;
+      }, 0);
+
+      let healthScore = 100;
+      healthScore -= lowStock.length * 10;
+      healthScore -= criticalStock.length * 10;
+      healthScore -= openOrders.length * 5;
+      healthScore -= missingCostItems.length * 3;
+      if (inventory.length === 0) healthScore -= 20;
+      if (employees.length === 0) healthScore -= 10;
+      if (healthScore < 0) healthScore = 0;
+
+      let answer = "";
+      const actions = [];
+
+      if (!question) {
+        answer = "Ask NovaOps a question about inventory, orders, payroll, risks, or what to do today.";
+      } else if (q.includes("reorder") || q.includes("stock") || q.includes("inventory")) {
+        if (lowStock.length > 0) {
+          answer =
+            "You should focus on reordering " +
+            lowStock.map(item => item.name).join(", ") +
+            ". These items are at or below their reorder points. " +
+            criticalStock.length +
+            " item(s) are at critical stock levels.";
+          actions.push("Open Inventory and use AI Supplier Order Assistant.");
+          actions.push("Confirm supplier availability and delivery timing.");
+        } else {
+          answer = "Inventory appears stable right now. No items are currently below reorder point.";
+          actions.push("Keep monitoring inventory levels daily.");
+        }
+      } else if (q.includes("order") || q.includes("supplier")) {
+        if (openOrders.length > 0) {
+          answer =
+            "You have " +
+            openOrders.length +
+            " open order(s). The next best action is to follow up with suppliers and confirm delivery dates.";
+          actions.push("Review open orders.");
+          actions.push("Update order status after supplier confirmation.");
+        } else {
+          answer = "There are no open orders requiring attention right now.";
+          actions.push("Create orders from low-stock inventory when needed.");
+        }
+      } else if (q.includes("payroll") || q.includes("employee") || q.includes("labor")) {
+        answer =
+          "Estimated weekly payroll is $" +
+          weeklyPayrollEstimate.toFixed(2) +
+          " across " +
+          employees.length +
+          " employee record(s).";
+        if (weeklyPayrollEstimate > inventoryValue && inventoryValue > 0) {
+          answer += " Payroll appears high compared with current inventory value, so cash flow should be watched closely.";
+          actions.push("Review payroll costs against current sales and inventory value.");
+        } else {
+          actions.push("Keep employee pay rates and hours updated.");
+        }
+      } else if (q.includes("risk") || q.includes("health") || q.includes("score")) {
+        answer =
+          "Your Business Health Score is " +
+          healthScore +
+          "/100. Main risk drivers are " +
+          lowStock.length +
+          " low-stock item(s), " +
+          openOrders.length +
+          " open order(s), and " +
+          missingCostItems.length +
+          " item(s) missing cost data.";
+        if (lowStock.length > 0) actions.push("Reorder low-stock items.");
+        if (openOrders.length > 0) actions.push("Follow up on open orders.");
+        if (missingCostItems.length > 0) actions.push("Add missing cost values to inventory.");
+      } else if (q.includes("today") || q.includes("do next") || q.includes("what should")) {
+        answer =
+          "Today, your top priority should be " +
+          (criticalStock.length > 0
+            ? "preventing stockouts by reordering critical inventory."
+            : lowStock.length > 0
+              ? "reordering low-stock items."
+              : openOrders.length > 0
+                ? "following up on open supplier orders."
+                : "monitoring operations and keeping data updated.");
+        if (criticalStock.length > 0) actions.push("Reorder " + criticalStock.map(item => item.name).join(", ") + ".");
+        else if (lowStock.length > 0) actions.push("Reorder " + lowStock.map(item => item.name).join(", ") + ".");
+        if (openOrders.length > 0) actions.push("Follow up on " + openOrders.length + " open order(s).");
+      } else {
+        answer =
+          "Here is the current NovaOps snapshot: Health Score " +
+          healthScore +
+          "/100, " +
+          inventory.length +
+          " inventory item(s), " +
+          lowStock.length +
+          " low-stock item(s), " +
+          openOrders.length +
+          " open order(s), $" +
+          inventoryValue.toFixed(2) +
+          " inventory value, and $" +
+          weeklyPayrollEstimate.toFixed(2) +
+          " estimated weekly payroll.";
+        actions.push("Ask about inventory, orders, payroll, risks, or what to do today.");
+      }
+
+      res.json({
+        source: "ask-novaops-local-ai",
+        question,
+        answer,
+        actions,
+        metrics: {
+          healthScore,
+          inventoryItems: inventory.length,
+          lowStockItems: lowStock.length,
+          criticalStockItems: criticalStock.length,
+          openOrders: openOrders.length,
+          employees: employees.length,
+          inventoryValue,
+          weeklyPayrollEstimate,
+          missingCostItems: missingCostItems.length
+        }
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "Ask NovaOps failed",
+        details: err.message
+      });
+    }
+  });
+
   app.get("/ai/autopilot", auth, function(req, res) {
     try {
       const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);

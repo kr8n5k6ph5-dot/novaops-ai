@@ -22,6 +22,8 @@ export default function App() {
   const [autopilot, setAutopilot] = useState(null);
   const [orders, setOrders] = useState([]);
   const [supplierOrder, setSupplierOrder] = useState(null);
+  const [askQuestion, setAskQuestion] = useState("What should I do today?");
+  const [askAnswer, setAskAnswer] = useState(null);
 
   const [itemName, setItemName] = useState("Coffee Beans");
   const [quantity, setQuantity] = useState("10");
@@ -144,6 +146,18 @@ export default function App() {
     return data;
   }
 
+
+  async function askNovaOps() {
+    try {
+      setStatus("Asking NovaOps...");
+      const data = await api("/ai/ask", "POST", { question: askQuestion });
+      setAskAnswer(data);
+      setStatus("Ask NovaOps answered.");
+    } catch (e) {
+      setStatus("Ask NovaOps error: " + e.message);
+      Alert.alert("Ask NovaOps error", e.message);
+    }
+  }
 
   async function loadAutopilot() {
     try {
@@ -834,6 +848,37 @@ export default function App() {
           return (
             <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
+
+              <Text style={styles.rowTitle}>Ask NovaOps</Text>
+              <TextInput
+                style={styles.input}
+                value={askQuestion}
+                onChangeText={setAskQuestion}
+                placeholder="Ask about inventory, payroll, orders, or risks"
+                placeholderTextColor="#718096"
+              />
+
+              <Pressable style={styles.button} onPress={askNovaOps}>
+                <Text style={styles.buttonText}>Ask NovaOps</Text>
+              </Pressable>
+
+              {askAnswer && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>NovaOps Answer</Text>
+                  <Text style={styles.rowText}>{askAnswer.answer}</Text>
+
+                  {askAnswer.actions && askAnswer.actions.length > 0 && (
+                    <>
+                      <Text style={styles.rowTitle}>Suggested Actions</Text>
+                      {askAnswer.actions.map((item, index) => (
+                        <Text key={"ask-action-" + index} style={styles.rowText}>
+                          {index + 1}. {item}
+                        </Text>
+                      ))}
+                    </>
+                  )}
+                </View>
+              )}
 
               <Pressable style={styles.button} onPress={loadAutopilot}>
                 <Text style={styles.buttonText}>Run AI Operations Autopilot</Text>
