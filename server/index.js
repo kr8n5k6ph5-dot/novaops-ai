@@ -1019,6 +1019,138 @@ saveDb();
     }
   });
 
+
+  app.get("/ai/ceo-briefing", auth, function(req, res) {
+    try {
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+      const employees = selectAll("SELECT * FROM employees WHERE userId = ?", [req.user.id]);
+      const orders = selectAll("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const lowStock = inventory.filter(function(item) {
+        return Number(item.quantity || 0) <= Number(item.reorderPoint || 0);
+      });
+
+      const criticalStock = inventory.filter(function(item) {
+        return Number(item.quantity || 0) <= Math.max(1, Number(item.reorderPoint || 0) / 2);
+      });
+
+      const openOrders = orders.filter(function(order) {
+        return !["received", "completed", "cancelled"].includes(String(order.status || "").toLowerCase());
+      });
+
+      const missingCostItems = inventory.filter(function(item) {
+        return Number(item.cost || 0) <= 0;
+      });
+
+      const inventoryValue = inventory.reduce(function(sum, item) {
+        return sum + Number(item.quantity || 0) * Number(item.cost || 0);
+      }, 0);
+
+      const weeklyPayrollEstimate = employees.reduce(function(sum, employee) {
+        return sum + Number(employee.payRate || 0) * 40;
+      }, 0);
+
+      let healthScore = 100;
+      healthScore -= criticalStock.length * 15;
+      healthScore -= lowStock.length * 8;
+      healthScore -= openOrders.length * 5;
+      healthScore -= missingCostItems.length * 3;
+
+      if (inventory.length === 0) healthScore -= 20;
+      if (employees.length === 0) healthScore -= 10;
+      if (healthScore < 0) healthScore = 0;
+
+      const priorities = [];
+
+      if (criticalStock.length > 0) {
+        priorities.push({
+          level: "urgent",
+          title: "Prevent stockouts",
+          detail: "Reorder " + criticalStock.map(item => item.name).join(", ") + " immediately."
+        });
+      }
+
+      if (lowStock.length > 0) {
+        priorities.push({
+          level: "high",
+          title: "Reorder low-stock inventory",
+          detail: lowStock.length + " item(s) are at or below reorder point."
+        });
+      }
+
+      if (openOrders.length > 0) {
+        priorities.push({
+          level: "medium",
+          title: "Follow up on open orders",
+          detail: openOrders.length + " open order(s) need supplier follow-up."
+        });
+      }
+
+      if (missingCostItems.length > 0) {
+        priorities.push({
+          level: "medium",
+          title: "Improve inventory cost data",
+          detail: missingCostItems.length + " item(s) need cost values for better profit tracking."
+        });
+      }
+
+      if (priorities.length === 0) {
+        priorities.push({
+          level: "normal",
+          title: "Operations are stable",
+          detail: "No urgent action is required today."
+        });
+      }
+
+      let biggestRisk = "No major operational risk detected.";
+
+      if (criticalStock.length > 0) {
+        biggestRisk = "Critical stockout risk on " + criticalStock.map(item => item.name).join(", ") + ".";
+      } else if (lowStock.length > 0) {
+        biggestRisk = "Low inventory risk on " + lowStock.map(item => item.name).join(", ") + ".";
+      } else if (openOrders.length > 0) {
+        biggestRisk = "Supplier follow-up risk because " + openOrders.length + " order(s) remain open.";
+      } else if (missingCostItems.length > 0) {
+        biggestRisk = "Data quality risk because inventory cost values are missing.";
+      }
+
+      const greeting =
+        "Good morning. NovaOps AI has reviewed your business operations.";
+
+      const briefing =
+        greeting + " Business Health Score is " + healthScore + "/100. " +
+        "Today's top focus is: " + priorities[0].title + ". " +
+        "Biggest risk: " + biggestRisk + " " +
+        "Inventory value is $" + inventoryValue.toFixed(2) + 
+        ", estimated weekly payroll is $" + weeklyPayrollEstimate.toFixed(2) + 
+        ", and there are " + openOrders.length + " open order(s).";
+
+      res.json({
+        source: "novaops-ceo-briefing",
+        healthScore,
+        greeting,
+        briefing,
+        biggestRisk,
+        priorities: priorities.slice(0, 5),
+        metrics: {
+          inventoryItems: inventory.length,
+          lowStockItems: lowStock.length,
+          criticalStockItems: criticalStock.length,
+          openOrders: openOrders.length,
+          employees: employees.length,
+          inventoryValue,
+          weeklyPayrollEstimate,
+          missingCostItems: missingCostItems.length
+        }
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "CEO briefing failed",
+        details: err.message
+      });
+    }
+  });
+
   app.get("/ai/autopilot", auth, function(req, res) {
     try {
       const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);

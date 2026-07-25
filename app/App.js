@@ -33,6 +33,7 @@ export default function App() {
   const [learningTitle, setLearningTitle] = useState("Reorder low-stock inventory");
   const [learningType, setLearningType] = useState("inventory");
   const [learningOutcome, setLearningOutcome] = useState("completed");
+  const [ceoBriefing, setCeoBriefing] = useState(null);
 
   const [itemName, setItemName] = useState("Coffee Beans");
   const [quantity, setQuantity] = useState("10");
@@ -183,6 +184,18 @@ export default function App() {
     } catch (e) {
       setStatus("Learning insights error: " + e.message);
       Alert.alert("Learning insights error", e.message);
+    }
+  }
+
+  async function loadCeoBriefing() {
+    try {
+      setStatus("Loading CEO Morning Briefing...");
+      const data = await api("/ai/ceo-briefing", "GET");
+      setCeoBriefing(data);
+      setStatus("CEO Morning Briefing updated.");
+    } catch (e) {
+      setStatus("CEO Briefing error: " + e.message);
+      Alert.alert("CEO Briefing error", e.message);
     }
   }
 
@@ -926,6 +939,30 @@ export default function App() {
           return (
             <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
+
+              <Pressable style={styles.button} onPress={loadCeoBriefing}>
+                <Text style={styles.buttonText}>Generate CEO Morning Briefing</Text>
+              </Pressable>
+
+              {ceoBriefing && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>CEO Morning Briefing</Text>
+                  <Text style={styles.rowText}>{ceoBriefing.briefing}</Text>
+
+                  <Text style={styles.rowTitle}>Business Health Score</Text>
+                  <Text style={styles.rowText}>{ceoBriefing.healthScore}/100</Text>
+
+                  <Text style={styles.rowTitle}>Biggest Risk</Text>
+                  <Text style={styles.rowText}>{ceoBriefing.biggestRisk}</Text>
+
+                  <Text style={styles.rowTitle}>Today's Priorities</Text>
+                  {ceoBriefing.priorities.map((item, index) => (
+                    <Text key={"ceo-priority-" + index} style={styles.rowText}>
+                      {index + 1}. [{item.level.toUpperCase()}] {item.title}: {item.detail}
+                    </Text>
+                  ))}
+                </View>
+              )}
 
               <Text style={styles.rowTitle}>AI Self-Learning Engine</Text>
               <TextInput
