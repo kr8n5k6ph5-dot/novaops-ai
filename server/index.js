@@ -650,6 +650,233 @@ saveDb();
     }
   });
 
+
+  app.get("/ai/command-center", auth, function(req, res) {
+    try {
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+      const employees = selectAll("SELECT * FROM employees WHERE userId = ?", [req.user.id]);
+      const orders = selectAll("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const lowStock = inventory.filter(item => Number(item.quantity || 0) <= Number(item.reorderPoint || 0));
+      const criticalStock = inventory.filter(item => Number(item.quantity || 0) <= Math.max(1, Number(item.reorderPoint || 0) / 2));
+      const openOrders = orders.filter(order => !["received", "completed", "cancelled"].includes(String(order.status || "").toLowerCase()));
+      const missingCostItems = inventory.filter(item => Number(item.cost || 0) <= 0);
+
+      const inventoryValue = inventory.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.cost || 0), 0);
+      const weeklyPayrollEstimate = employees.reduce((sum, employee) => sum + Number(employee.payRate || 0) * 40, 0);
+
+      let healthScore = 100;
+      healthScore -= criticalStock.length * 15;
+      healthScore -= lowStock.length * 8;
+      healthScore -= openOrders.length * 5;
+      healthScore -= missingCostItems.length * 3;
+      if (inventory.length === 0) healthScore -= 20;
+      if (employees.length === 0) healthScore -= 10;
+      if (healthScore < 0) healthScore = 0;
+
+      const cards = [];
+
+      if (criticalStock.length > 0) {
+        cards.push({
+          status: "red",
+          title: "Critical Stock Risk",
+          summary: criticalStock.length + " item(s) are at critical stock levels.",
+          action: "Generate supplier order",
+          target: "inventory"
+        });
+      }
+
+      if (lowStock.length > 0) {
+        cards.push({
+          status: "yellow",
+          title: "Low Inventory",
+          summary: lowStock.length + " item(s) need reorder attention.",
+          action: "Review reorder recommendations",
+          target: "inventory"
+        });
+      }
+
+      if (openOrders.length > 0) {
+        cards.push({
+          status: "yellow",
+          title: "Open Orders",
+          summary: openOrders.length + " open order(s) need supplier follow-up.",
+          action: "Review open orders",
+          target: "orders"
+        });
+      }
+
+      if (missingCostItems.length > 0) {
+        cards.push({
+          status: "yellow",
+          title: "Missing Cost Data",
+          summary: missingCostItems.length + " inventory item(s) are missing cost values.",
+          action: "Update item costs",
+          target: "inventory"
+        });
+      }
+
+      if (cards.length === 0) {
+        cards.push({
+          status: "green",
+          title: "Operations Stable",
+          summary: "No urgent operational issues detected.",
+          action: "Continue monitoring",
+          target: "dashboard"
+        });
+      }
+
+      const commandBriefing =
+        "AI Command Center: Health Score " + healthScore + "/100. " +
+        "Priority focus: " + cards[0].title + ". " +
+        "Inventory value is $" + inventoryValue.toFixed(2) +
+        ", estimated weekly payroll is $" + weeklyPayrollEstimate.toFixed(2) +
+        ", and there are " + openOrders.length + " open order(s).";
+
+      res.json({
+        source: "novaops-command-center",
+        healthScore,
+        commandBriefing,
+        cards: cards.slice(0, 5),
+        metrics: {
+          inventoryItems: inventory.length,
+          lowStockItems: lowStock.length,
+          criticalStockItems: criticalStock.length,
+          openOrders: openOrders.length,
+          employees: employees.length,
+          inventoryValue,
+          weeklyPayrollEstimate,
+          missingCostItems: missingCostItems.length
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Command Center failed", details: err.message });
+    }
+  });
+
+  app.post("/ai/what-if", auth, function(req, res) {
+    try {
+      const type = String((req.body && req.body.type) || "inventory_increase");
+      const amount = Number((req.body && req.body.amount) || 10);
+
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+      const employees = selectAll("SELECT * FROM employees WHERE userId = ?", [req.user.id]);
+      const orders = selectAll("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const inventoryValue = inventory.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.cost || 0), 0);
+      const weeklyPayrollEstimate = employees.reduce((sum, employee) => sum + Number(employee.payRate || 0) * 40, 0);
+      const openOrders = orders.filter(order => !["received", "completed", "cancelled"].includes(String(order.status || "").toLowerCase()));
+      const lowStock = inventory.filter(item => Number(item.quantity || 0) <= Number(item.reorderPoint || 0));
+
+      let title = "";
+      let summary = "";
+      let impact = [];
+
+      if (type === "inventory_increase") {
+        const addedValue = inventoryValue * (amount / 100);
+        title = "What if inventory increases by " + amount + "%?";
+        summary = "Estimated inventory value would increase by $" + addedValue.toFixed(2) + ". This may reduce stockout risk but requires more cash tied up in inventory.";
+        impact.push("Inventory value estimate: $" + (inventoryValue + addedValue).toFixed(2));
+        impact.push("Stockout risk may decrease if increases target low-stock items.");
+        impact.push("Cash available may decrease by approximately $" + addedValue.toFixed(2) + ".");
+      } else if (type === "sales_drop") {
+        const riskValue = inventoryValue * (amount / 100);
+        title = "What if sales drop by " + amount + "%?";
+        summary = "A sales drop could increase inventory holding pressure and slow cash recovery.";
+        impact.push("Potential slow-moving inventory exposure: $" + riskValue.toFixed(2));
+        impact.push("Open orders should be reviewed before placing new supplier orders.");
+        impact.push("Current open orders: " + openOrders.length);
+      } else if (type === "hire_employee") {
+        const addedPayroll = amount * 40;
+        title = "What if another employee is hired at $" + amount + "/hour?";
+        summary = "Estimated weekly payroll would increase by $" + addedPayroll.toFixed(2) + ".";
+        impact.push("Current weekly payroll estimate: $" + weeklyPayrollEstimate.toFixed(2));
+        impact.push("New weekly payroll estimate: $" + (weeklyPayrollEstimate + addedPayroll).toFixed(2));
+        impact.push("Review whether revenue and workload justify the added labor cost.");
+      } else {
+        title = "What-if simulation";
+        summary = "NovaOps can simulate inventory increases, sales drops, and hiring decisions.";
+        impact.push("Try inventory increase, sales drop, or hire employee.");
+      }
+
+      res.json({
+        source: "novaops-what-if",
+        type,
+        amount,
+        title,
+        summary,
+        impact,
+        context: {
+          inventoryValue,
+          weeklyPayrollEstimate,
+          openOrders: openOrders.length,
+          lowStockItems: lowStock.length
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "What-if simulator failed", details: err.message });
+    }
+  });
+
+  app.get("/ai/forecast", auth, function(req, res) {
+    try {
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+      const employees = selectAll("SELECT * FROM employees WHERE userId = ?", [req.user.id]);
+      const orders = selectAll("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const forecasts = inventory.map(function(item) {
+        const dailySales = Number(item.salesLast30Days || 0) / 30;
+        const quantity = Number(item.quantity || 0);
+        const reorderPoint = Number(item.reorderPoint || 0);
+
+        let daysUntilStockout = null;
+        if (dailySales > 0) {
+          daysUntilStockout = Math.max(0, Math.floor(quantity / dailySales));
+        }
+
+        let risk = "low";
+        if (daysUntilStockout !== null && daysUntilStockout <= 7) risk = "high";
+        else if (quantity <= reorderPoint) risk = "medium";
+
+        return {
+          itemId: item.id,
+          itemName: item.name,
+          quantity,
+          reorderPoint,
+          salesLast30Days: Number(item.salesLast30Days || 0),
+          estimatedDaysUntilStockout: daysUntilStockout,
+          stockoutRisk: risk
+        };
+      });
+
+      const highRiskItems = forecasts.filter(item => item.stockoutRisk === "high");
+      const mediumRiskItems = forecasts.filter(item => item.stockoutRisk === "medium");
+
+      const weeklyPayrollEstimate = employees.reduce((sum, employee) => sum + Number(employee.payRate || 0) * 40, 0);
+      const openOrders = orders.filter(order => !["received", "completed", "cancelled"].includes(String(order.status || "").toLowerCase()));
+
+      const summary =
+        "Forecast: " + highRiskItems.length + " high-risk stockout item(s), " +
+        mediumRiskItems.length + " medium-risk item(s), " +
+        openOrders.length + " open order(s), and estimated weekly payroll of $" +
+        weeklyPayrollEstimate.toFixed(2) + ".";
+
+      res.json({
+        source: "novaops-forecast",
+        summary,
+        forecasts,
+        metrics: {
+          highRiskStockouts: highRiskItems.length,
+          mediumRiskStockouts: mediumRiskItems.length,
+          openOrders: openOrders.length,
+          weeklyPayrollEstimate
+        }
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Forecast failed", details: err.message });
+    }
+  });
+
   app.get("/ai/autopilot", auth, function(req, res) {
     try {
       const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);

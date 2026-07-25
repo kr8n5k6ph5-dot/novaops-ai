@@ -24,6 +24,11 @@ export default function App() {
   const [supplierOrder, setSupplierOrder] = useState(null);
   const [askQuestion, setAskQuestion] = useState("What should I do today?");
   const [askAnswer, setAskAnswer] = useState(null);
+  const [commandCenter, setCommandCenter] = useState(null);
+  const [whatIfType, setWhatIfType] = useState("inventory_increase");
+  const [whatIfAmount, setWhatIfAmount] = useState("10");
+  const [whatIfResult, setWhatIfResult] = useState(null);
+  const [forecast, setForecast] = useState(null);
 
   const [itemName, setItemName] = useState("Coffee Beans");
   const [quantity, setQuantity] = useState("10");
@@ -146,6 +151,45 @@ export default function App() {
     return data;
   }
 
+
+  async function loadCommandCenter() {
+    try {
+      setStatus("Loading AI Command Center...");
+      const data = await api("/ai/command-center", "GET");
+      setCommandCenter(data);
+      setStatus("AI Command Center updated.");
+    } catch (e) {
+      setStatus("Command Center error: " + e.message);
+      Alert.alert("Command Center error", e.message);
+    }
+  }
+
+  async function runWhatIf() {
+    try {
+      setStatus("Running What-If Simulator...");
+      const data = await api("/ai/what-if", "POST", {
+        type: whatIfType,
+        amount: Number(whatIfAmount || 0)
+      });
+      setWhatIfResult(data);
+      setStatus("What-If Simulator updated.");
+    } catch (e) {
+      setStatus("What-If error: " + e.message);
+      Alert.alert("What-If error", e.message);
+    }
+  }
+
+  async function loadForecast() {
+    try {
+      setStatus("Loading AI Forecast...");
+      const data = await api("/ai/forecast", "GET");
+      setForecast(data);
+      setStatus("AI Forecast updated.");
+    } catch (e) {
+      setStatus("Forecast error: " + e.message);
+      Alert.alert("Forecast error", e.message);
+    }
+  }
 
   async function askNovaOps() {
     try {
@@ -848,6 +892,73 @@ export default function App() {
           return (
             <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
+
+              <Pressable style={styles.button} onPress={loadCommandCenter}>
+                <Text style={styles.buttonText}>Open AI Command Center</Text>
+              </Pressable>
+
+              {commandCenter && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>AI Command Center</Text>
+                  <Text style={styles.rowText}>{commandCenter.commandBriefing}</Text>
+                  <Text style={styles.rowTitle}>Health Score</Text>
+                  <Text style={styles.rowText}>{commandCenter.healthScore}/100</Text>
+                  <Text style={styles.rowTitle}>Today's Command Cards</Text>
+                  {commandCenter.cards.map((card, index) => (
+                    <Text key={"command-card-" + index} style={styles.rowText}>
+                      {index + 1}. [{card.status.toUpperCase()}] {card.title}: {card.summary} Action: {card.action}
+                    </Text>
+                  ))}
+                </View>
+              )}
+
+              <Text style={styles.rowTitle}>AI What-If Simulator</Text>
+              <TextInput
+                style={styles.input}
+                value={whatIfType}
+                onChangeText={setWhatIfType}
+                placeholder="inventory_increase, sales_drop, hire_employee"
+                placeholderTextColor="#718096"
+              />
+              <TextInput
+                style={styles.input}
+                value={whatIfAmount}
+                onChangeText={setWhatIfAmount}
+                placeholder="Amount"
+                placeholderTextColor="#718096"
+                keyboardType="numeric"
+              />
+              <Pressable style={styles.button} onPress={runWhatIf}>
+                <Text style={styles.buttonText}>Run What-If Simulation</Text>
+              </Pressable>
+
+              {whatIfResult && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>{whatIfResult.title}</Text>
+                  <Text style={styles.rowText}>{whatIfResult.summary}</Text>
+                  {whatIfResult.impact.map((item, index) => (
+                    <Text key={"what-if-" + index} style={styles.rowText}>
+                      {index + 1}. {item}
+                    </Text>
+                  ))}
+                </View>
+              )}
+
+              <Pressable style={styles.button} onPress={loadForecast}>
+                <Text style={styles.buttonText}>Run AI Forecast</Text>
+              </Pressable>
+
+              {forecast && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>AI Forecast</Text>
+                  <Text style={styles.rowText}>{forecast.summary}</Text>
+                  {forecast.forecasts.slice(0, 5).map((item, index) => (
+                    <Text key={"forecast-" + index} style={styles.rowText}>
+                      {index + 1}. {item.itemName}: {item.stockoutRisk} risk, estimated stockout in {item.estimatedDaysUntilStockout === null ? "unknown" : item.estimatedDaysUntilStockout + " day(s)"}
+                    </Text>
+                  ))}
+                </View>
+              )}
 
               <Text style={styles.rowTitle}>Ask NovaOps</Text>
               <TextInput
