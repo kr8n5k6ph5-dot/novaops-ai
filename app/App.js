@@ -19,6 +19,7 @@ export default function App() {
   const [recommendations, setRecommendations] = useState([]);
   const [adminActions, setAdminActions] = useState([]);
   const [executiveAiSummary, setExecutiveAiSummary] = useState("");
+  const [autopilot, setAutopilot] = useState(null);
   const [orders, setOrders] = useState([]);
 
   const [itemName, setItemName] = useState("Coffee Beans");
@@ -142,6 +143,18 @@ export default function App() {
     return data;
   }
 
+
+  async function loadAutopilot() {
+    try {
+      setStatus("Loading NovaOps Autopilot...");
+      const data = await api("/ai/autopilot", "GET");
+      setAutopilot(data);
+      setStatus("NovaOps Autopilot updated.");
+    } catch (e) {
+      setStatus("Autopilot error: " + e.message);
+      Alert.alert("Autopilot error", e.message);
+    }
+  }
 
   async function loadExecutiveSummary() {
     try {
@@ -792,6 +805,31 @@ export default function App() {
           return (
             <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
+
+              <Pressable style={styles.button} onPress={loadAutopilot}>
+                <Text style={styles.buttonText}>Run AI Operations Autopilot</Text>
+              </Pressable>
+
+              {autopilot && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>NovaOps Autopilot</Text>
+                  <Text style={styles.rowText}>{autopilot.briefing}</Text>
+
+                  <Text style={styles.rowTitle}>Top Actions</Text>
+                  {autopilot.priorityActions.map((item, index) => (
+                    <Text key={index} style={styles.rowText}>
+                      {index + 1}. {item.title}: {item.action}
+                    </Text>
+                  ))}
+
+                  <Text style={styles.rowTitle}>Risk Radar</Text>
+                  {autopilot.risks.map((risk, index) => (
+                    <Text key={"risk-" + index} style={styles.rowText}>
+                      {risk.name}: {risk.level}
+                    </Text>
+                  ))}
+                </View>
+              )}
 
               <View style={styles.row}>
                 <Text style={styles.rowTitle}>Business Health Score</Text>

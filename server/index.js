@@ -411,6 +411,149 @@ saveDb();
     res.json(saved);
   });
 
+
+  app.get("/ai/autopilot", auth, function(req, res) {
+    try {
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+      const employees = selectAll("SELECT * FROM employees WHERE userId = ?", [req.user.id]);
+      const orders = selectAll("SELECT * FROM orders WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const lowStock = inventory.filter(function(item) {
+        return Number(item.quantity || 0) <= Number(item.reorderPoint || 0);
+      });
+
+      const criticalStock = inventory.filter(function(item) {
+        return Number(item.quantity || 0) <= Math.max(1, Number(item.reorderPoint || 0) / 2);
+      });
+
+      const openOrders = orders.filter(function(order) {
+        return !["received", "completed", "cancelled"].includes(String(order.status || "").toLowerCase());
+      });
+
+      const missingCostItems = inventory.filter(function(item) {
+        return Number(item.cost || 0) <= 0;
+      });
+
+      const inventoryValue = inventory.reduce(function(sum, item) {
+        return sum + Number(item.quantity || 0) * Number(item.cost || 0);
+      }, 0);
+
+      const weeklyPayrollEstimate = employees.reduce(function(sum, employee) {
+        return sum + Number(employee.payRate || 0) * 40;
+      }, 0);
+
+      let healthScore = 100;
+      healthScore -= lowStock.length * 10;
+      healthScore -= criticalStock.length * 10;
+      healthScore -= openOrders.length * 5;
+      healthScore -= missingCostItems.length * 3;
+
+      if (inventory.length === 0) healthScore -= 20;
+      if (employees.length === 0) healthScore -= 10;
+      if (healthScore < 0) healthScore = 0;
+
+      const priorityActions = [];
+
+      if (criticalStock.length > 0) {
+        priorityActions.push({
+          priority: "urgent",
+          title: "Prevent stockouts",
+          action: "Reorder " + criticalStock.map(item => item.name).join(", ") + " immediately.",
+          reason: "These items are at or below critical stock levels."
+        });
+      }
+
+      if (lowStock.length > 0) {
+        priorityActions.push({
+          priority: "high",
+          title: "Reorder low-stock inventory",
+          action: "Create supplier orders for " + lowStock.map(item => item.name).join(", ") + ".",
+          reason: "These items are at or below their reorder points."
+        });
+      }
+
+      if (openOrders.length > 0) {
+        priorityActions.push({
+          priority: "medium",
+          title: "Follow up on open orders",
+          action: "Review " + openOrders.length + " open order(s) and confirm supplier status.",
+          reason: "Open orders can delay inventory recovery if they are not tracked."
+        });
+      }
+
+      if (missingCostItems.length > 0) {
+        priorityActions.push({
+          priority: "medium",
+          title: "Improve inventory data quality",
+          action: "Add cost values to " + missingCostItems.length + " inventory item(s).",
+          reason: "Missing cost data makes profit and inventory value less accurate."
+        });
+      }
+
+      if (priorityActions.length === 0) {
+        priorityActions.push({
+          priority: "normal",
+          title: "Operations look stable",
+          action: "Keep monitoring inventory, orders, and payroll every day.",
+          reason: "No urgent operational risks were detected."
+        });
+      }
+
+      const risks = [];
+
+      risks.push({
+        name: "Stockout Risk",
+        level: criticalStock.length > 0 ? "High" : lowStock.length > 0 ? "Medium" : "Low"
+      });
+
+      risks.push({
+        name: "Supplier Delay Risk",
+        level: openOrders.length >= 3 ? "High" : openOrders.length > 0 ? "Medium" : "Low"
+      });
+
+      risks.push({
+        name: "Payroll Pressure",
+        level: weeklyPayrollEstimate > inventoryValue && inventoryValue > 0 ? "Medium" : "Low"
+      });
+
+      risks.push({
+        name: "Data Quality Risk",
+        level: missingCostItems.length > 0 ? "Medium" : "Low"
+      });
+
+      const briefing =
+        "NovaOps Autopilot: Business Health Score is " + healthScore + "/100. " +
+        "Today, focus on " + priorityActions[0].title.toLowerCase() + ". " +
+        lowStock.length + " low-stock item(s), " +
+        openOrders.length + " open order(s), $" +
+        inventoryValue.toFixed(2) + " inventory value, and estimated weekly payroll of $" +
+        weeklyPayrollEstimate.toFixed(2) + ".";
+
+      res.json({
+        source: "novaops-autopilot",
+        healthScore,
+        briefing,
+        priorityActions: priorityActions.slice(0, 3),
+        risks,
+        metrics: {
+          inventoryItems: inventory.length,
+          lowStockItems: lowStock.length,
+          criticalStockItems: criticalStock.length,
+          openOrders: openOrders.length,
+          employees: employees.length,
+          inventoryValue,
+          weeklyPayrollEstimate,
+          missingCostItems: missingCostItems.length
+        }
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "Autopilot failed",
+        details: err.message
+      });
+    }
+  });
+
   app.get("/ai/recommendations", auth, function(req, res) {
     const items = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
 
