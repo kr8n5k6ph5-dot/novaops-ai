@@ -29,6 +29,10 @@ export default function App() {
   const [whatIfAmount, setWhatIfAmount] = useState("10");
   const [whatIfResult, setWhatIfResult] = useState(null);
   const [forecast, setForecast] = useState(null);
+  const [learningInsights, setLearningInsights] = useState(null);
+  const [learningTitle, setLearningTitle] = useState("Reorder low-stock inventory");
+  const [learningType, setLearningType] = useState("inventory");
+  const [learningOutcome, setLearningOutcome] = useState("completed");
 
   const [itemName, setItemName] = useState("Coffee Beans");
   const [quantity, setQuantity] = useState("10");
@@ -151,6 +155,36 @@ export default function App() {
     return data;
   }
 
+
+  async function recordLearningEvent() {
+    try {
+      setStatus("Recording AI learning event...");
+      const data = await api("/ai/learning-events", "POST", {
+        recommendationType: learningType,
+        recommendationTitle: learningTitle,
+        actionTaken: "user_recorded_outcome",
+        outcome: learningOutcome
+      });
+      setStatus("AI learning event recorded.");
+      Alert.alert("NovaOps learned", data.message);
+      await loadLearningInsights();
+    } catch (e) {
+      setStatus("Learning error: " + e.message);
+      Alert.alert("Learning error", e.message);
+    }
+  }
+
+  async function loadLearningInsights() {
+    try {
+      setStatus("Loading AI learning insights...");
+      const data = await api("/ai/learning-insights", "GET");
+      setLearningInsights(data);
+      setStatus("AI learning insights updated.");
+    } catch (e) {
+      setStatus("Learning insights error: " + e.message);
+      Alert.alert("Learning insights error", e.message);
+    }
+  }
 
   async function loadCommandCenter() {
     try {
@@ -892,6 +926,59 @@ export default function App() {
           return (
             <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
+
+              <Text style={styles.rowTitle}>AI Self-Learning Engine</Text>
+              <TextInput
+                style={styles.input}
+                value={learningTitle}
+                onChangeText={setLearningTitle}
+                placeholder="Recommendation title"
+                placeholderTextColor="#718096"
+              />
+              <TextInput
+                style={styles.input}
+                value={learningType}
+                onChangeText={setLearningType}
+                placeholder="inventory, orders, payroll, risk"
+                placeholderTextColor="#718096"
+              />
+              <TextInput
+                style={styles.input}
+                value={learningOutcome}
+                onChangeText={setLearningOutcome}
+                placeholder="completed, stockout_avoided, ignored, late"
+                placeholderTextColor="#718096"
+              />
+
+              <Pressable style={styles.button} onPress={recordLearningEvent}>
+                <Text style={styles.buttonText}>Record Recommendation Outcome</Text>
+              </Pressable>
+
+              <Pressable style={styles.button} onPress={loadLearningInsights}>
+                <Text style={styles.buttonText}>View AI Learning Insights</Text>
+              </Pressable>
+
+              {learningInsights && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>AI Learning Insights</Text>
+                  <Text style={styles.rowText}>{learningInsights.summary}</Text>
+                  <Text style={styles.rowTitle}>Learning Score</Text>
+                  <Text style={styles.rowText}>{learningInsights.learningScore}%</Text>
+                  <Text style={styles.rowTitle}>Next Best Learning Action</Text>
+                  <Text style={styles.rowText}>{learningInsights.nextBestLearningAction}</Text>
+
+                  {learningInsights.patterns && learningInsights.patterns.length > 0 && (
+                    <>
+                      <Text style={styles.rowTitle}>Learned Patterns</Text>
+                      {learningInsights.patterns.map((pattern, index) => (
+                        <Text key={"learning-pattern-" + index} style={styles.rowText}>
+                          {index + 1}. {pattern.type}: {pattern.insight}
+                        </Text>
+                      ))}
+                    </>
+                  )}
+                </View>
+              )}
 
               <Pressable style={styles.button} onPress={loadCommandCenter}>
                 <Text style={styles.buttonText}>Open AI Command Center</Text>

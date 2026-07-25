@@ -877,6 +877,148 @@ saveDb();
     }
   });
 
+
+  app.post("/ai/learning-events", auth, function(req, res) {
+    try {
+      db.run("CREATE TABLE IF NOT EXISTS ai_learning_events (id TEXT PRIMARY KEY, userId TEXT, recommendationType TEXT, recommendationTitle TEXT, actionTaken TEXT, outcome TEXT, impactScore REAL, createdAt TEXT)");
+
+      const recommendationType = String(req.body.recommendationType || "general");
+      const recommendationTitle = String(req.body.recommendationTitle || "NovaOps recommendation");
+      const actionTaken = String(req.body.actionTaken || "reviewed");
+      const outcome = String(req.body.outcome || "unknown");
+
+      let impactScore = 0;
+
+      if (["completed", "stockout_avoided", "cost_saved", "risk_reduced", "order_created"].includes(outcome)) {
+        impactScore = 10;
+      } else if (["reviewed", "pending", "partial"].includes(outcome)) {
+        impactScore = 4;
+      } else if (["ignored", "no_action", "late"].includes(outcome)) {
+        impactScore = -3;
+      }
+
+      const event = {
+        id: uuid(),
+        userId: req.user.id,
+        recommendationType,
+        recommendationTitle,
+        actionTaken,
+        outcome,
+        impactScore,
+        createdAt: new Date().toISOString()
+      };
+
+      execute(
+        "INSERT INTO ai_learning_events (id,userId,recommendationType,recommendationTitle,actionTaken,outcome,impactScore,createdAt) VALUES (?,?,?,?,?,?,?,?)",
+        [event.id, event.userId, event.recommendationType, event.recommendationTitle, event.actionTaken, event.outcome, event.impactScore, event.createdAt]
+      );
+
+      saveDb();
+
+      res.json({
+        source: "novaops-self-learning",
+        message: "Learning event recorded.",
+        event
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "Learning event failed",
+        details: err.message
+      });
+    }
+  });
+
+  app.get("/ai/learning-insights", auth, function(req, res) {
+    try {
+      db.run("CREATE TABLE IF NOT EXISTS ai_learning_events (id TEXT PRIMARY KEY, userId TEXT, recommendationType TEXT, recommendationTitle TEXT, actionTaken TEXT, outcome TEXT, impactScore REAL, createdAt TEXT)");
+
+      const events = selectAll(
+        "SELECT * FROM ai_learning_events WHERE userId = ? ORDER BY createdAt DESC",
+        [req.user.id]
+      );
+
+      const totalEvents = events.length;
+      const positiveEvents = events.filter(event => Number(event.impactScore || 0) > 0);
+      const neutralEvents = events.filter(event => Number(event.impactScore || 0) === 0);
+      const negativeEvents = events.filter(event => Number(event.impactScore || 0) < 0);
+
+      const learningScore = totalEvents === 0
+        ? 0
+        : Math.round((positiveEvents.length / totalEvents) * 100);
+
+      const typeStats = {};
+
+      events.forEach(function(event) {
+        const type = event.recommendationType || "general";
+        if (!typeStats[type]) {
+          typeStats[type] = {
+            type,
+            count: 0,
+            impactScore: 0
+          };
+        }
+
+        typeStats[type].count += 1;
+        typeStats[type].impactScore += Number(event.impactScore || 0);
+      });
+
+      const patterns = Object.values(typeStats)
+        .sort((a, b) => b.impactScore - a.impactScore)
+        .slice(0, 5)
+        .map(function(item) {
+          return {
+            type: item.type,
+            count: item.count,
+            impactScore: item.impactScore,
+            insight: item.impactScore > 0
+              ? "Recommendations in this category are producing positive outcomes."
+              : "Recommendations in this category need more follow-through or better data."
+          };
+        });
+
+      let summary = "NovaOps is ready to learn from your actions. Record outcomes when you follow AI recommendations.";
+
+      if (totalEvents > 0) {
+        summary =
+          "NovaOps has learned from " +
+          totalEvents +
+          " decision event(s). Positive outcome rate is " +
+          learningScore +
+          "%. " +
+          positiveEvents.length +
+          " event(s) improved operations, " +
+          neutralEvents.length +
+          " were neutral, and " +
+          negativeEvents.length +
+          " need follow-up.";
+      }
+
+      const nextBestLearningAction = totalEvents === 0
+        ? "Record your first AI recommendation outcome."
+        : negativeEvents.length > 0
+          ? "Review recommendations that were ignored or completed late."
+          : "Keep recording outcomes so NovaOps can improve future recommendations.";
+
+      res.json({
+        source: "novaops-self-learning",
+        summary,
+        learningScore,
+        totalEvents,
+        positiveEvents: positiveEvents.length,
+        neutralEvents: neutralEvents.length,
+        negativeEvents: negativeEvents.length,
+        patterns,
+        nextBestLearningAction,
+        recentEvents: events.slice(0, 10)
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "Learning insights failed",
+        details: err.message
+      });
+    }
+  });
+
   app.get("/ai/autopilot", auth, function(req, res) {
     try {
       const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
