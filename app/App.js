@@ -21,6 +21,7 @@ export default function App() {
   const [executiveAiSummary, setExecutiveAiSummary] = useState("");
   const [autopilot, setAutopilot] = useState(null);
   const [orders, setOrders] = useState([]);
+  const [supplierOrder, setSupplierOrder] = useState(null);
 
   const [itemName, setItemName] = useState("Coffee Beans");
   const [quantity, setQuantity] = useState("10");
@@ -275,6 +276,19 @@ export default function App() {
     } catch (e) {
       setStatus("Login error: " + e.message);
       Alert.alert("Login error", e.message);
+    }
+  }
+
+  async function generateSupplierOrder() {
+    try {
+      setStatus("Generating supplier order...");
+      const data = await api("/ai/supplier-order", "POST", {});
+      setSupplierOrder(data);
+      setStatus("Supplier order draft ready for " + data.itemName + ".");
+      Alert.alert("Supplier Order Draft", data.subject + "\n\n" + data.message);
+    } catch (e) {
+      setStatus("Supplier order error: " + e.message);
+      Alert.alert("Supplier order error", e.message);
     }
   }
 
@@ -633,6 +647,21 @@ export default function App() {
             <Pressable style={styles.button} onPress={addInventory}>
               <Text style={styles.buttonText}>Add Inventory</Text>
             </Pressable>
+
+            <Pressable style={styles.button} onPress={generateSupplierOrder}>
+              <Text style={styles.buttonText}>AI Supplier Order Assistant</Text>
+            </Pressable>
+
+            {supplierOrder && (
+              <View style={styles.row}>
+                <Text style={styles.rowTitle}>Supplier Order Draft</Text>
+                <Text style={styles.rowText}>Item: {supplierOrder.itemName}</Text>
+                <Text style={styles.rowText}>Urgency: {supplierOrder.urgency}</Text>
+                <Text style={styles.rowText}>Suggested Quantity: {supplierOrder.suggestedQuantity}</Text>
+                <Text style={styles.rowText}>Subject: {supplierOrder.subject}</Text>
+                <Text style={styles.rowText}>{supplierOrder.message}</Text>
+              </View>
+            )}
 
             {inventory.length === 0 && <Text style={styles.rowText}>No inventory yet.</Text>}
 

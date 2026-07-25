@@ -412,6 +412,87 @@ saveDb();
   });
 
 
+
+  app.post("/ai/supplier-order", auth, function(req, res) {
+    try {
+      const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
+
+      if (!inventory || inventory.length === 0) {
+        return res.status(400).json({ error: "No inventory items found." });
+      }
+
+      let item = null;
+
+      if (req.body && req.body.itemId) {
+        item = selectOne("SELECT * FROM inventory WHERE id = ? AND userId = ?", [req.body.itemId, req.user.id]);
+      }
+
+      if (!item) {
+        const ranked = inventory.slice().sort(function(a, b) {
+          const aRatio = Number(a.quantity || 0) / Math.max(1, Number(a.reorderPoint || 1));
+          const bRatio = Number(b.quantity || 0) / Math.max(1, Number(b.reorderPoint || 1));
+          return aRatio - bRatio;
+        });
+
+        item = ranked[0];
+      }
+
+      if (!item) {
+        return res.status(400).json({ error: "No inventory item selected." });
+      }
+
+      const currentStock = Number(item.quantity || 0);
+      const reorderPoint = Number(item.reorderPoint || 0);
+      const salesLast30Days = Number(item.salesLast30Days || 0);
+      const supplierName = item.supplierName || "Supplier";
+      const supplierEmail = item.supplierEmail || "";
+
+      const suggestedQuantity = Math.max(
+        1,
+        Math.ceil((reorderPoint * 2) - currentStock),
+        Math.ceil(salesLast30Days / 2),
+        10
+      );
+
+      let urgency = "normal";
+      if (currentStock <= Math.max(1, reorderPoint / 2)) urgency = "urgent";
+      else if (currentStock <= reorderPoint) urgency = "high";
+
+      const subject = "Reorder Request - " + item.name;
+
+      const message =
+        "Hello " + supplierName + ",\n\n" +
+        "NovaOps AI recommends placing a reorder for " + item.name + ".\n\n" +
+        "Current Stock: " + currentStock + "\n" +
+        "Reorder Point: " + reorderPoint + "\n" +
+        "Sales Last 30 Days: " + salesLast30Days + "\n" +
+        "Suggested Quantity: " + suggestedQuantity + "\n" +
+        "Urgency: " + urgency.toUpperCase() + "\n\n" +
+        "Please confirm availability, pricing, and estimated delivery date.\n\n" +
+        "Thank you.";
+
+      res.json({
+        source: "novaops-supplier-assistant",
+        itemId: item.id,
+        itemName: item.name,
+        supplierName,
+        supplierEmail,
+        currentStock,
+        reorderPoint,
+        salesLast30Days,
+        suggestedQuantity,
+        urgency,
+        subject,
+        message
+      });
+    } catch (err) {
+      res.status(500).json({
+        error: "Supplier ordering assistant failed",
+        details: err.message
+      });
+    }
+  });
+
   app.get("/ai/autopilot", auth, function(req, res) {
     try {
       const inventory = selectAll("SELECT * FROM inventory WHERE userId = ?", [req.user.id]);
