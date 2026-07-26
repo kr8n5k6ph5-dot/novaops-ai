@@ -21,6 +21,24 @@ export default function App() {
   const [executiveAiSummary, setExecutiveAiSummary] = useState("");
   const [autopilot, setAutopilot] = useState(null);
   const [orders, setOrders] = useState([]);
+
+  const [appointments, setAppointments] = useState([]);
+  const [tasks, setTasks] = useState([]);
+  const [vehicles, setVehicles] = useState([]);
+  const [businessOsBriefing, setBusinessOsBriefing] = useState(null);
+
+  const [appointmentCustomer, setAppointmentCustomer] = useState("New Customer");
+  const [appointmentDate, setAppointmentDate] = useState("2026-08-01");
+  const [appointmentTime, setAppointmentTime] = useState("9:00 AM");
+  const [appointmentLocation, setAppointmentLocation] = useState("Main Office");
+
+  const [taskTitle, setTaskTitle] = useState("Follow up with supplier");
+  const [taskPriority, setTaskPriority] = useState("high");
+  const [taskDueDate, setTaskDueDate] = useState("2026-08-01");
+
+  const [vehicleName, setVehicleName] = useState("Work Truck 1");
+  const [vehicleMileage, setVehicleMileage] = useState("10000");
+  const [vehicleMaintenanceDue, setVehicleMaintenanceDue] = useState("Oil change due");
   const [supplierOrder, setSupplierOrder] = useState(null);
   const [askQuestion, setAskQuestion] = useState("What should I do today?");
   const [askAnswer, setAskAnswer] = useState(null);
@@ -184,6 +202,74 @@ export default function App() {
     } catch (e) {
       setStatus("Learning insights error: " + e.message);
       Alert.alert("Learning insights error", e.message);
+    }
+  }
+
+  async function loadBusinessOS() {
+    try {
+      setStatus("Loading Business OS...");
+      const appts = await api("/appointments", "GET");
+      const taskData = await api("/tasks", "GET");
+      const vehicleData = await api("/vehicles", "GET");
+      const briefing = await api("/ai/business-os-briefing", "GET");
+
+      setAppointments(appts);
+      setTasks(taskData);
+      setVehicles(vehicleData);
+      setBusinessOsBriefing(briefing);
+      setStatus("Business OS updated.");
+    } catch (e) {
+      setStatus("Business OS error: " + e.message);
+      Alert.alert("Business OS error", e.message);
+    }
+  }
+
+  async function addAppointment() {
+    try {
+      const item = await api("/appointments", "POST", {
+        customerName: appointmentCustomer,
+        appointmentDate,
+        appointmentTime,
+        location: appointmentLocation,
+        status: "scheduled"
+      });
+      setAppointments(current => [item, ...current]);
+      setStatus("Appointment added.");
+    } catch (e) {
+      setStatus("Appointment error: " + e.message);
+      Alert.alert("Appointment error", e.message);
+    }
+  }
+
+  async function addTask() {
+    try {
+      const item = await api("/tasks", "POST", {
+        title: taskTitle,
+        priority: taskPriority,
+        dueDate: taskDueDate,
+        status: "open"
+      });
+      setTasks(current => [item, ...current]);
+      setStatus("Task added.");
+    } catch (e) {
+      setStatus("Task error: " + e.message);
+      Alert.alert("Task error", e.message);
+    }
+  }
+
+  async function addVehicle() {
+    try {
+      const item = await api("/vehicles", "POST", {
+        name: vehicleName,
+        mileage: Number(vehicleMileage || 0),
+        maintenanceDue: vehicleMaintenanceDue,
+        status: "active"
+      });
+      setVehicles(current => [item, ...current]);
+      setStatus("Vehicle added.");
+    } catch (e) {
+      setStatus("Vehicle error: " + e.message);
+      Alert.alert("Vehicle error", e.message);
     }
   }
 
@@ -939,6 +1025,79 @@ export default function App() {
           return (
             <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
+
+              <Text style={styles.rowTitle}>Business OS</Text>
+              <Text style={styles.rowText}>Manage appointments, tasks, and vehicles from NovaOps.</Text>
+
+              <Pressable style={styles.button} onPress={loadBusinessOS}>
+                <Text style={styles.buttonText}>Load Business OS Briefing</Text>
+              </Pressable>
+
+              {businessOsBriefing && (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>Business OS Briefing</Text>
+                  <Text style={styles.rowText}>{businessOsBriefing.summary}</Text>
+
+                  <Text style={styles.rowTitle}>Recommended Actions</Text>
+                  {businessOsBriefing.actions.map((item, index) => (
+                    <Text key={"bos-action-" + index} style={styles.rowText}>
+                      {index + 1}. {item}
+                    </Text>
+                  ))}
+                </View>
+              )}
+
+              <Text style={styles.rowTitle}>Add Appointment</Text>
+              <TextInput style={styles.input} value={appointmentCustomer} onChangeText={setAppointmentCustomer} placeholder="Customer name" placeholderTextColor="#94A3B8" />
+              <TextInput style={styles.input} value={appointmentDate} onChangeText={setAppointmentDate} placeholder="Date" placeholderTextColor="#94A3B8" />
+              <TextInput style={styles.input} value={appointmentTime} onChangeText={setAppointmentTime} placeholder="Time" placeholderTextColor="#94A3B8" />
+              <TextInput style={styles.input} value={appointmentLocation} onChangeText={setAppointmentLocation} placeholder="Location" placeholderTextColor="#94A3B8" />
+              <Pressable style={styles.button} onPress={addAppointment}>
+                <Text style={styles.buttonText}>Add Appointment</Text>
+              </Pressable>
+
+              {appointments.slice(0, 3).map((item, index) => (
+                <View key={"appointment-" + item.id + index} style={styles.row}>
+                  <Text style={styles.rowTitle}>{item.customerName}</Text>
+                  <Text style={styles.rowText}>{item.appointmentDate} at {item.appointmentTime}</Text>
+                  <Text style={styles.rowText}>{item.location}</Text>
+                  <Text style={styles.rowText}>Status: {item.status}</Text>
+                </View>
+              ))}
+
+              <Text style={styles.rowTitle}>Add Task</Text>
+              <TextInput style={styles.input} value={taskTitle} onChangeText={setTaskTitle} placeholder="Task title" placeholderTextColor="#94A3B8" />
+              <TextInput style={styles.input} value={taskPriority} onChangeText={setTaskPriority} placeholder="Priority" placeholderTextColor="#94A3B8" />
+              <TextInput style={styles.input} value={taskDueDate} onChangeText={setTaskDueDate} placeholder="Due date" placeholderTextColor="#94A3B8" />
+              <Pressable style={styles.button} onPress={addTask}>
+                <Text style={styles.buttonText}>Add Task</Text>
+              </Pressable>
+
+              {tasks.slice(0, 3).map((item, index) => (
+                <View key={"task-" + item.id + index} style={styles.row}>
+                  <Text style={styles.rowTitle}>{item.title}</Text>
+                  <Text style={styles.rowText}>Priority: {item.priority}</Text>
+                  <Text style={styles.rowText}>Due: {item.dueDate}</Text>
+                  <Text style={styles.rowText}>Status: {item.status}</Text>
+                </View>
+              ))}
+
+              <Text style={styles.rowTitle}>Add Vehicle</Text>
+              <TextInput style={styles.input} value={vehicleName} onChangeText={setVehicleName} placeholder="Vehicle name" placeholderTextColor="#94A3B8" />
+              <TextInput style={styles.input} value={vehicleMileage} onChangeText={setVehicleMileage} placeholder="Mileage" placeholderTextColor="#94A3B8" keyboardType="numeric" />
+              <TextInput style={styles.input} value={vehicleMaintenanceDue} onChangeText={setVehicleMaintenanceDue} placeholder="Maintenance due" placeholderTextColor="#94A3B8" />
+              <Pressable style={styles.button} onPress={addVehicle}>
+                <Text style={styles.buttonText}>Add Vehicle</Text>
+              </Pressable>
+
+              {vehicles.slice(0, 3).map((item, index) => (
+                <View key={"vehicle-" + item.id + index} style={styles.row}>
+                  <Text style={styles.rowTitle}>{item.name}</Text>
+                  <Text style={styles.rowText}>Mileage: {item.mileage}</Text>
+                  <Text style={styles.rowText}>Maintenance: {item.maintenanceDue}</Text>
+                  <Text style={styles.rowText}>Status: {item.status}</Text>
+                </View>
+              ))}
 
               <Pressable style={styles.button} onPress={loadCeoBriefing}>
                 <Text style={styles.buttonText}>Generate CEO Morning Briefing</Text>

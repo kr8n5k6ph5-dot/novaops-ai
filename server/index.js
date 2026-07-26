@@ -99,6 +99,9 @@ async function main() {
   db.run("CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, userId TEXT, name TEXT, role TEXT, payType TEXT, payRate REAL, performanceScore REAL, createdAt TEXT)");
   db.run("CREATE TABLE IF NOT EXISTS payroll_runs (id TEXT PRIMARY KEY, userId TEXT, employeeId TEXT, employeeName TEXT, grossPay REAL, estimatedTax REAL, netPay REAL, status TEXT, createdAt TEXT)");
   db.run("CREATE TABLE IF NOT EXISTS orders (id TEXT PRIMARY KEY, userId TEXT, itemId TEXT, itemName TEXT, quantityOrdered REAL, status TEXT, createdAt TEXT)");
+  db.run("CREATE TABLE IF NOT EXISTS appointments (id TEXT PRIMARY KEY, userId TEXT, customerName TEXT, appointmentDate TEXT, appointmentTime TEXT, location TEXT, status TEXT, notes TEXT, createdAt TEXT)");
+  db.run("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, userId TEXT, title TEXT, assignedTo TEXT, priority TEXT, dueDate TEXT, status TEXT, notes TEXT, createdAt TEXT)");
+  db.run("CREATE TABLE IF NOT EXISTS vehicles (id TEXT PRIMARY KEY, userId TEXT, name TEXT, vin TEXT, mileage REAL, insuranceExpiration TEXT, registrationExpiration TEXT, maintenanceDue TEXT, status TEXT, notes TEXT, createdAt TEXT)");
   db.run(`
   CREATE TABLE IF NOT EXISTS ai_actions (
     id TEXT PRIMARY KEY,
@@ -1148,6 +1151,174 @@ saveDb();
         error: "CEO briefing failed",
         details: err.message
       });
+    }
+  });
+
+
+  app.get("/appointments", auth, function(req, res) {
+    try {
+      const rows = selectAll("SELECT * FROM appointments WHERE userId = ? ORDER BY appointmentDate ASC, appointmentTime ASC", [req.user.id]);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: "Appointments failed", details: err.message });
+    }
+  });
+
+  app.post("/appointments", auth, function(req, res) {
+    try {
+      const item = {
+        id: uuid(),
+        userId: req.user.id,
+        customerName: req.body.customerName || "Customer",
+        appointmentDate: req.body.appointmentDate || "",
+        appointmentTime: req.body.appointmentTime || "",
+        location: req.body.location || "",
+        status: req.body.status || "scheduled",
+        notes: req.body.notes || "",
+        createdAt: new Date().toISOString()
+      };
+
+      execute(
+        "INSERT INTO appointments (id,userId,customerName,appointmentDate,appointmentTime,location,status,notes,createdAt) VALUES (?,?,?,?,?,?,?,?,?)",
+        [item.id,item.userId,item.customerName,item.appointmentDate,item.appointmentTime,item.location,item.status,item.notes,item.createdAt]
+      );
+
+      saveDb();
+      res.json(item);
+    } catch (err) {
+      res.status(500).json({ error: "Add appointment failed", details: err.message });
+    }
+  });
+
+  app.get("/tasks", auth, function(req, res) {
+    try {
+      const rows = selectAll("SELECT * FROM tasks WHERE userId = ? ORDER BY dueDate ASC", [req.user.id]);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: "Tasks failed", details: err.message });
+    }
+  });
+
+  app.post("/tasks", auth, function(req, res) {
+    try {
+      const item = {
+        id: uuid(),
+        userId: req.user.id,
+        title: req.body.title || "New task",
+        assignedTo: req.body.assignedTo || "",
+        priority: req.body.priority || "medium",
+        dueDate: req.body.dueDate || "",
+        status: req.body.status || "open",
+        notes: req.body.notes || "",
+        createdAt: new Date().toISOString()
+      };
+
+      execute(
+        "INSERT INTO tasks (id,userId,title,assignedTo,priority,dueDate,status,notes,createdAt) VALUES (?,?,?,?,?,?,?,?,?)",
+        [item.id,item.userId,item.title,item.assignedTo,item.priority,item.dueDate,item.status,item.notes,item.createdAt]
+      );
+
+      saveDb();
+      res.json(item);
+    } catch (err) {
+      res.status(500).json({ error: "Add task failed", details: err.message });
+    }
+  });
+
+  app.get("/vehicles", auth, function(req, res) {
+    try {
+      const rows = selectAll("SELECT * FROM vehicles WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: "Vehicles failed", details: err.message });
+    }
+  });
+
+  app.post("/vehicles", auth, function(req, res) {
+    try {
+      const item = {
+        id: uuid(),
+        userId: req.user.id,
+        name: req.body.name || "Vehicle",
+        vin: req.body.vin || "",
+        mileage: Number(req.body.mileage || 0),
+        insuranceExpiration: req.body.insuranceExpiration || "",
+        registrationExpiration: req.body.registrationExpiration || "",
+        maintenanceDue: req.body.maintenanceDue || "",
+        status: req.body.status || "active",
+        notes: req.body.notes || "",
+        createdAt: new Date().toISOString()
+      };
+
+      execute(
+        "INSERT INTO vehicles (id,userId,name,vin,mileage,insuranceExpiration,registrationExpiration,maintenanceDue,status,notes,createdAt) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        [item.id,item.userId,item.name,item.vin,item.mileage,item.insuranceExpiration,item.registrationExpiration,item.maintenanceDue,item.status,item.notes,item.createdAt]
+      );
+
+      saveDb();
+      res.json(item);
+    } catch (err) {
+      res.status(500).json({ error: "Add vehicle failed", details: err.message });
+    }
+  });
+
+  app.get("/ai/business-os-briefing", auth, function(req, res) {
+    try {
+      const appointments = selectAll("SELECT * FROM appointments WHERE userId = ? ORDER BY appointmentDate ASC, appointmentTime ASC", [req.user.id]);
+      const tasks = selectAll("SELECT * FROM tasks WHERE userId = ? ORDER BY dueDate ASC", [req.user.id]);
+      const vehicles = selectAll("SELECT * FROM vehicles WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]);
+
+      const openTasks = tasks.filter(task => !["done", "completed", "cancelled"].includes(String(task.status || "").toLowerCase()));
+      const highPriorityTasks = openTasks.filter(task => String(task.priority || "").toLowerCase() === "high" || String(task.priority || "").toLowerCase() === "urgent");
+      const scheduledAppointments = appointments.filter(appt => !["done", "completed", "cancelled"].includes(String(appt.status || "").toLowerCase()));
+      const vehicleAlerts = vehicles.filter(vehicle => String(vehicle.status || "").toLowerCase() !== "inactive" && (vehicle.maintenanceDue || vehicle.insuranceExpiration || vehicle.registrationExpiration));
+
+      const actions = [];
+
+      if (scheduledAppointments.length > 0) {
+        actions.push("Review " + scheduledAppointments.length + " scheduled appointment(s).");
+      }
+
+      if (highPriorityTasks.length > 0) {
+        actions.push("Complete " + highPriorityTasks.length + " high-priority task(s).");
+      } else if (openTasks.length > 0) {
+        actions.push("Review " + openTasks.length + " open task(s).");
+      }
+
+      if (vehicleAlerts.length > 0) {
+        actions.push("Check " + vehicleAlerts.length + " vehicle record(s) for maintenance, insurance, or registration updates.");
+      }
+
+      if (actions.length === 0) {
+        actions.push("Business OS looks stable. Keep appointments, tasks, and vehicles updated.");
+      }
+
+      const summary =
+        "Business OS Briefing: " +
+        scheduledAppointments.length + " scheduled appointment(s), " +
+        openTasks.length + " open task(s), " +
+        vehicles.length + " vehicle record(s). " +
+        "Top action: " + actions[0];
+
+      res.json({
+        source: "novaops-business-os",
+        summary,
+        actions,
+        metrics: {
+          appointments: appointments.length,
+          scheduledAppointments: scheduledAppointments.length,
+          tasks: tasks.length,
+          openTasks: openTasks.length,
+          highPriorityTasks: highPriorityTasks.length,
+          vehicles: vehicles.length,
+          vehicleAlerts: vehicleAlerts.length
+        },
+        appointments: appointments.slice(0, 5),
+        tasks: tasks.slice(0, 5),
+        vehicles: vehicles.slice(0, 5)
+      });
+    } catch (err) {
+      res.status(500).json({ error: "Business OS briefing failed", details: err.message });
     }
   });
 
