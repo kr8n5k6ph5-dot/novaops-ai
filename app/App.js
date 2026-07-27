@@ -16,6 +16,7 @@ export default function App() {
   const [dashboard, setDashboard] = useState(null);
   const [inventory, setInventory] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [timeEntries, setTimeEntries] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [adminActions, setAdminActions] = useState([]);
   const [executiveAiSummary, setExecutiveAiSummary] = useState("");
@@ -392,12 +393,14 @@ export default function App() {
       const d = await api("/dashboard", "GET", null, activeToken);
       const inv = await api("/inventory", "GET", null, activeToken);
       const emp = await api("/employees", "GET", null, activeToken);
+      const timeEntryData = await api("/time-entries", "GET", null, activeToken);
       const rec = await api("/ai/recommendations", "GET", null, activeToken);
       const ord = await api("/orders", "GET", null, activeToken);
 
       setDashboard(d);
       setInventory(inv);
       setEmployees(emp);
+      setTimeEntries(timeEntryData);
       setRecommendations(rec);
       setOrders(ord);
       setStatus("Refreshed successfully.");
@@ -713,6 +716,35 @@ export default function App() {
     }
   }
 
+
+  async function clockIn(employee) {
+    try {
+      setStatus("Clocking in " + employee.name + "...");
+      await api("/time-entries/clock-in", "POST", {
+        employeeId: employee.id
+      });
+      await loadAll();
+      setStatus(employee.name + " clocked in.");
+    } catch (e) {
+      setStatus("Clock in error: " + e.message);
+      Alert.alert("Clock in error", e.message);
+    }
+  }
+
+  async function clockOut(entry) {
+    try {
+      setStatus("Clocking out...");
+      const saved = await api("/time-entries/" + entry.id + "/clock-out", "PUT");
+      await loadAll();
+      setStatus("Clocked out. Hours worked: " + Number(saved.hoursWorked || 0).toFixed(2));
+      Alert.alert("Clocked out", "Hours worked: " + Number(saved.hoursWorked || 0).toFixed(2));
+    } catch (e) {
+      setStatus("Clock out error: " + e.message);
+      Alert.alert("Clock out error", e.message);
+    }
+  }
+
+
   if (!user) {
     return (
       <SafeAreaView style={styles.page}>
@@ -1007,6 +1039,17 @@ export default function App() {
 
             {employees.length === 0 && <Text style={styles.rowText}>No employees yet.</Text>}
 
+            {timeEntries.length > 0 && (
+              <View style={styles.row}>
+                <Text style={styles.rowTitle}>Recent Time Entries</Text>
+                {timeEntries.slice(0, 5).map(entry => (
+                  <Text key={entry.id} style={styles.rowText}>
+                    {entry.employeeName}: {entry.status} | In: {new Date(entry.clockInAt).toLocaleString()} {entry.clockOutAt ? "| Out: " + new Date(entry.clockOutAt).toLocaleString() + " | Hours: " + Number(entry.hoursWorked || 0).toFixed(2) : ""}
+                  </Text>
+                ))}
+              </View>
+            )}
+
             {employees.map(emp => (
               <View key={emp.id} style={styles.row}>
                 <Text style={styles.rowTitle}>{emp.name}</Text>
@@ -1016,6 +1059,14 @@ export default function App() {
                 <Text style={styles.rowText}>Certification Exp: {emp.certificationExpiration || "Not set"}</Text>
                 <Text style={styles.rowText}>Review Date: {emp.lastReviewDate || "Not set"}</Text>
                 <Text style={styles.rowText}>Notes: {emp.managerNotes || "None"}</Text>
+                {(() => {
+                  const openEntry = timeEntries.find(entry => entry.employeeId === emp.id && !entry.clockOutAt);
+                  return (
+                    <Text style={styles.rowText}>
+                      Clock Status: {openEntry ? "Clocked In since " + new Date(openEntry.clockInAt).toLocaleString() : "Clocked Out"}
+                    </Text>
+                  );
+                })()}
 
                 <View style={styles.actionRow}>
                   <Pressable style={styles.smallButton} onPress={() => {
@@ -1037,6 +1088,21 @@ export default function App() {
 
                   <Pressable style={styles.smallButton} onPress={() => calculatePayroll(emp)}>
                     <Text style={styles.buttonText}>Calculate Pay</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.approveButton} onPress={() => clockIn(emp)}>
+                    <Text style={styles.buttonText}>Clock In</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.smallButton} onPress={() => {
+                    const openEntry = timeEntries.find(entry => entry.employeeId === emp.id && !entry.clockOutAt);
+                    if (!openEntry) {
+                      Alert.alert("Clock out unavailable", emp.name + " is not currently clocked in.");
+                      return;
+                    }
+                    clockOut(openEntry);
+                  }}>
+                    <Text style={styles.buttonText}>Clock Out</Text>
                   </Pressable>
 
                   <Pressable style={styles.employeeDeleteButton} onPress={() => deleteEmployee(emp)}>

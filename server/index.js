@@ -309,6 +309,20 @@ saveDb();
   try { execute("ALTER TABLE employees ADD COLUMN managerNotes TEXT DEFAULT ''"); } catch (e) {}
   try { execute("ALTER TABLE employees ADD COLUMN lastReviewDate TEXT DEFAULT ''"); } catch (e) {}
 
+
+  // Workforce Management V2 Clock In/Out schema
+  execute(`CREATE TABLE IF NOT EXISTS time_entries (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    employeeId TEXT NOT NULL,
+    employeeName TEXT DEFAULT '',
+    clockInAt TEXT NOT NULL,
+    clockOutAt TEXT DEFAULT '',
+    hoursWorked REAL DEFAULT 0,
+    status TEXT DEFAULT 'open',
+    createdAt TEXT NOT NULL
+  )`);
+
   app.get("/employees", auth, function(req, res) {
     res.json(selectAll("SELECT * FROM employees WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]));
   });
@@ -381,6 +395,82 @@ saveDb();
     execute("DELETE FROM employees WHERE id = ? AND userId = ?", [req.params.id, req.user.id]);
     res.json({ ok: true, deleted: employee });
   });
+
+
+  app.get("/time-entries", auth, function(req, res) {
+    const rows = selectAll(
+      "SELECT * FROM time_entries WHERE userId = ? ORDER BY createdAt DESC LIMIT 100",
+      [req.user.id]
+    );
+    res.json(rows);
+  });
+
+  app.post("/time-entries/clock-in", auth, function(req, res) {
+    const employee = selectOne(
+      "SELECT * FROM employees WHERE id = ? AND userId = ?",
+      [req.body.employeeId, req.user.id]
+    );
+
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+    const openEntry = selectOne(
+      "SELECT * FROM time_entries WHERE employeeId = ? AND userId = ? AND status = 'open'",
+      [employee.id, req.user.id]
+    );
+
+    if (openEntry) {
+      return res.status(400).json({ error: "Employee is already clocked in." });
+    }
+
+    const now = new Date().toISOString();
+
+    const entry = {
+      id: uuid(),
+      userId: req.user.id,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      clockInAt: now,
+      clockOutAt: "",
+      hoursWorked: 0,
+      status: "open",
+      createdAt: now
+    };
+
+    execute(
+      "INSERT INTO time_entries (id, userId, employeeId, employeeName, clockInAt, clockOutAt, hoursWorked, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [entry.id, entry.userId, entry.employeeId, entry.employeeName, entry.clockInAt, entry.clockOutAt, entry.hoursWorked, entry.status, entry.createdAt]
+    );
+
+    res.json(entry);
+  });
+
+  app.put("/time-entries/:id/clock-out", auth, function(req, res) {
+    const entry = selectOne(
+      "SELECT * FROM time_entries WHERE id = ? AND userId = ?",
+      [req.params.id, req.user.id]
+    );
+
+    if (!entry) return res.status(404).json({ error: "Time entry not found" });
+    if (entry.status !== "open") return res.status(400).json({ error: "Time entry is already closed." });
+
+    const clockOutAt = new Date().toISOString();
+    const start = new Date(entry.clockInAt);
+    const end = new Date(clockOutAt);
+    const hoursWorked = Math.round(((end - start) / (1000 * 60 * 60)) * 100) / 100;
+
+    execute(
+      "UPDATE time_entries SET clockOutAt = ?, hoursWorked = ?, status = ? WHERE id = ? AND userId = ?",
+      [clockOutAt, hoursWorked, "closed", req.params.id, req.user.id]
+    );
+
+    const saved = selectOne(
+      "SELECT * FROM time_entries WHERE id = ? AND userId = ?",
+      [req.params.id, req.user.id]
+    );
+
+    res.json(saved);
+  });
+
 
   app.post("/payroll/calculate", auth, function(req, res) {
     const employee = selectOne("SELECT * FROM employees WHERE id = ? AND userId = ?", [req.body.employeeId, req.user.id]);
