@@ -7,12 +7,12 @@ const API = "https://novaops-ai-app.onrender.com";
 
 function screenLabel(tab) {
   const labels = {
-    dashboard: "🏠 Home",
-    workforce: "👥 Workforce",
-    operations: "📦 Operations",
-    insights: "📊 Insights",
-    ai: "🤖 AI Center",
-    admin: "⚙️ Admin"
+    dashboard: "Home",
+    workforce: "Workforce",
+    operations: "Operations",
+    insights: "Insights",
+    ai: "AI Center",
+    admin: "Admin"
   };
 
   return labels[tab] || tab;
@@ -39,7 +39,6 @@ export default function App() {
   const [token, setToken] = useState("");
   const [user, setUser] = useState(null);
   const [screen, setScreen] = useState("dashboard");
-  const [compactMode, setCompactMode] = useState(true);
   const [status, setStatus] = useState("Ready");
 
   const [email, setEmail] = useState("owner@example.com");
@@ -842,7 +841,7 @@ export default function App() {
             <Text style={styles.statusText}>{status}</Text>
           </View>
 
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>Create or sign in</Text>
 
             <TextInput style={styles.input} value={businessName} onChangeText={setBusinessName} placeholder="Business name" placeholderTextColor="#718096" />
@@ -890,17 +889,6 @@ export default function App() {
           <Text style={styles.osSubtitle}>Manage workforce, operations, financials, and AI decisions from one organized system.</Text>
         </View>
 
-        <View style={styles.focusBar}>
-          <View>
-            <Text style={styles.focusTitle}>Workspace View</Text>
-            <Text style={styles.focusText}>{compactMode ? "Compact mode reduces page clutter." : "Expanded mode shows more breathing room."}</Text>
-          </View>
-
-          <Pressable style={styles.focusButton} onPress={() => setCompactMode(!compactMode)}>
-            <Text style={styles.focusButtonText}>{compactMode ? "Expanded" : "Compact"}</Text>
-          </Pressable>
-        </View>
-
         <View style={styles.nav}>
           {tabs.map(tab => (
             <Pressable
@@ -917,7 +905,7 @@ export default function App() {
         </View>
 
         {screen === "dashboard" && (
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>Business Dashboard</Text>
 
             <View style={styles.kpiGrid}>
@@ -1007,7 +995,7 @@ export default function App() {
         )}
 
         {screen === "operations" && (
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>Operations: Inventory</Text>
 
             <View style={styles.sectionHeader}>
@@ -1078,7 +1066,7 @@ export default function App() {
 
 
         {screen === "operations" && (
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>Operations: Orders</Text>
 
             <Pressable style={styles.button} onPress={() => loadAll()}>
@@ -1115,7 +1103,7 @@ export default function App() {
         )}
 
         {screen === "workforce" && (
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>Workforce Hub</Text>
 
             <View style={styles.sectionHeader}>
@@ -1357,7 +1345,7 @@ export default function App() {
               : "Business operations appear stable with no major inventory risks.";
 
           return (
-            <View style={[styles.card, compactMode && styles.compactCard]}>
+            <View style={styles.card}>
               <Text style={styles.title}>Business Insights</Text>
 
               <Text style={styles.rowTitle}>Business OS</Text>
@@ -1723,7 +1711,7 @@ export default function App() {
         })()}
 
         {screen === "ai" && (
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>AI Recommendations</Text>
 
             <Pressable style={styles.button} onPress={() => loadAll()}>
@@ -1746,7 +1734,7 @@ export default function App() {
         )}
 
         {screen === "admin" && (
-          <View style={[styles.card, compactMode && styles.compactCard]}>
+          <View style={styles.card}>
             <Text style={styles.title}>Admin AI Dashboard</Text>
 
             <Text style={styles.rowText}>
@@ -1898,289 +1886,5 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontSize: 14,
     lineHeight: 20
-  },
-,
-
-  // NovaOps OS V3 clutter-reduction polish
-  page: {
-    flex: 1,
-    backgroundColor: "#EAF1F8"
-  },
-  container: {
-    padding: 18,
-    paddingBottom: 60,
-    maxWidth: 1180,
-    width: "100%",
-    alignSelf: "center"
-  },
-  logo: {
-    color: "#0F172A",
-    fontSize: 30,
-    fontWeight: "900",
-    marginTop: 6,
-    marginBottom: 2,
-    letterSpacing: -0.5
-  },
-  tagline: {
-    color: "#475569",
-    fontSize: 14,
-    fontWeight: "700",
-    marginBottom: 14
-  },
-  statusBox: {
-    backgroundColor: "#ECFEFF",
-    borderColor: "#A5F3FC",
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 12,
-    marginBottom: 14
-  },
-  statusText: {
-    color: "#155E75",
-    fontWeight: "800",
-    fontSize: 13
-  },
-  nav: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 18,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 22,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: "#E2E8F0"
-  },
-  navButton: {
-    backgroundColor: "#F8FAFC",
-    paddingVertical: 11,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#E2E8F0"
-  },
-  navActive: {
-    backgroundColor: "#0F172A",
-    borderColor: "#0F172A"
-  },
-  navText: {
-    color: "#334155",
-    fontWeight: "900",
-    fontSize: 13
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 18,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    shadowColor: "#0F172A",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3
-  },
-  compactCard: {
-    padding: 16,
-    marginBottom: 14
-  },
-  title: {
-    color: "#0F172A",
-    fontSize: 24,
-    fontWeight: "900",
-    marginBottom: 14,
-    letterSpacing: -0.4
-  },
-  row: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 18,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0"
-  },
-  rowTitle: {
-    color: "#0F172A",
-    fontSize: 16,
-    fontWeight: "900",
-    marginBottom: 5
-  },
-  rowText: {
-    color: "#475569",
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 3
-  },
-  actionRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 10
-  },
-  button: {
-    backgroundColor: "#2563EB",
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    marginTop: 8,
-    marginBottom: 8
-  },
-  secondaryButton: {
-    backgroundColor: "#F8FAFC",
-    borderColor: "#CBD5E1",
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    alignItems: "center",
-    marginTop: 8
-  },
-  smallButton: {
-    backgroundColor: "#334155",
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    flexGrow: 1
-  },
-  approveButton: {
-    backgroundColor: "#16A34A",
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    flexGrow: 1
-  },
-  rejectButton: {
-    backgroundColor: "#FEE2E2",
-    borderColor: "#FCA5A5",
-    borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    flexGrow: 1
-  },
-  employeeDeleteButton: {
-    backgroundColor: "#DC2626",
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    alignItems: "center",
-    flexGrow: 1
-  },
-  input: {
-    backgroundColor: "#FFFFFF",
-    borderColor: "#CBD5E1",
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-    color: "#0F172A",
-    fontSize: 15,
-    marginBottom: 10
-  },
-  osHero: {
-    backgroundColor: "#0F172A",
-    borderRadius: 26,
-    padding: 22,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#1E293B"
-  },
-  osTitle: {
-    color: "#FFFFFF",
-    fontSize: 28,
-    fontWeight: "900",
-    marginBottom: 6,
-    letterSpacing: -0.6
-  },
-  osSubtitle: {
-    color: "#CBD5E1",
-    fontSize: 15,
-    lineHeight: 22,
-    maxWidth: 760
-  },
-  kpiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    marginBottom: 16
-  },
-  kpiCard: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 20,
-    padding: 16,
-    minWidth: "46%",
-    flexGrow: 1,
-    borderWidth: 1,
-    borderColor: "#DDE8F5"
-  },
-  kpiLabel: {
-    color: "#64748B",
-    fontSize: 12,
-    fontWeight: "900",
-    marginBottom: 6,
-    textTransform: "uppercase",
-    letterSpacing: 0.5
-  },
-  kpiValue: {
-    color: "#0F172A",
-    fontSize: 30,
-    fontWeight: "900"
-  },
-  sectionHeader: {
-    backgroundColor: "#F8FAFC",
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0"
-  },
-  sectionTitle: {
-    color: "#0F172A",
-    fontSize: 18,
-    fontWeight: "900",
-    marginBottom: 5
-  },
-  sectionText: {
-    color: "#64748B",
-    fontSize: 14,
-    lineHeight: 20
-  },
-  focusBar: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 12
-  },
-  focusTitle: {
-    color: "#0F172A",
-    fontSize: 15,
-    fontWeight: "900"
-  },
-  focusText: {
-    color: "#64748B",
-    fontSize: 13,
-    marginTop: 2
-  },
-  focusButton: {
-    backgroundColor: "#0F172A",
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 14
-  },
-  focusButtonText: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-    fontSize: 13
   },
 });
