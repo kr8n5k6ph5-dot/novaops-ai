@@ -301,6 +301,14 @@ saveDb();
     res.json(order);
   });
 
+  
+  // Workforce Management V1 safe schema migration
+  try { execute("ALTER TABLE employees ADD COLUMN attendancePercent REAL DEFAULT 0"); } catch (e) {}
+  try { execute("ALTER TABLE employees ADD COLUMN certifications TEXT DEFAULT ''"); } catch (e) {}
+  try { execute("ALTER TABLE employees ADD COLUMN certificationExpiration TEXT DEFAULT ''"); } catch (e) {}
+  try { execute("ALTER TABLE employees ADD COLUMN managerNotes TEXT DEFAULT ''"); } catch (e) {}
+  try { execute("ALTER TABLE employees ADD COLUMN lastReviewDate TEXT DEFAULT ''"); } catch (e) {}
+
   app.get("/employees", auth, function(req, res) {
     res.json(selectAll("SELECT * FROM employees WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]));
   });
@@ -323,12 +331,17 @@ saveDb();
       payType: req.body.payType || "hourly",
       payRate: Number(req.body.payRate || 0),
       performanceScore: Number(req.body.performanceScore || 0),
+      attendancePercent: Number(req.body.attendancePercent || 0),
+      certifications: req.body.certifications || "",
+      certificationExpiration: req.body.certificationExpiration || "",
+      managerNotes: req.body.managerNotes || "",
+      lastReviewDate: req.body.lastReviewDate || "",
       createdAt: new Date().toISOString()
     };
 
     execute(
-      "INSERT INTO employees (id, userId, name, role, payType, payRate, performanceScore, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      [employee.id, employee.userId, employee.name, employee.role, employee.payType, employee.payRate, employee.performanceScore, employee.createdAt]
+      "INSERT INTO employees (id, userId, name, role, payType, payRate, performanceScore, attendancePercent, certifications, certificationExpiration, managerNotes, lastReviewDate, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [employee.id, employee.userId, employee.name, employee.role, employee.payType, employee.payRate, employee.performanceScore, employee.attendancePercent, employee.certifications, employee.certificationExpiration, employee.managerNotes, employee.lastReviewDate, employee.createdAt]
     );
 
     res.json(employee);
@@ -344,12 +357,17 @@ saveDb();
       role: req.body.role || employee.role || "",
       payType: req.body.payType || employee.payType || "hourly",
       payRate: req.body.payRate !== undefined ? Number(req.body.payRate) : Number(employee.payRate || 0),
-      performanceScore: req.body.performanceScore !== undefined ? Number(req.body.performanceScore) : Number(employee.performanceScore || 0)
+      performanceScore: req.body.performanceScore !== undefined ? Number(req.body.performanceScore) : Number(employee.performanceScore || 0),
+      attendancePercent: req.body.attendancePercent !== undefined ? Number(req.body.attendancePercent) : Number(employee.attendancePercent || 0),
+      certifications: req.body.certifications !== undefined ? req.body.certifications : employee.certifications || "",
+      certificationExpiration: req.body.certificationExpiration !== undefined ? req.body.certificationExpiration : employee.certificationExpiration || "",
+      managerNotes: req.body.managerNotes !== undefined ? req.body.managerNotes : employee.managerNotes || "",
+      lastReviewDate: req.body.lastReviewDate !== undefined ? req.body.lastReviewDate : employee.lastReviewDate || ""
     };
 
     execute(
-      "UPDATE employees SET name = ?, role = ?, payType = ?, payRate = ?, performanceScore = ? WHERE id = ? AND userId = ?",
-      [updated.name, updated.role, updated.payType, updated.payRate, updated.performanceScore, req.params.id, req.user.id]
+      "UPDATE employees SET name = ?, role = ?, payType = ?, payRate = ?, performanceScore = ?, attendancePercent = ?, certifications = ?, certificationExpiration = ?, managerNotes = ?, lastReviewDate = ? WHERE id = ? AND userId = ?",
+      [updated.name, updated.role, updated.payType, updated.payRate, updated.performanceScore, updated.attendancePercent, updated.certifications, updated.certificationExpiration, updated.managerNotes, updated.lastReviewDate, req.params.id, req.user.id]
     );
 
     const saved = selectOne("SELECT * FROM employees WHERE id = ? AND userId = ?", [req.params.id, req.user.id]);
