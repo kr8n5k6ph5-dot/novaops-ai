@@ -35,6 +35,7 @@ export default function App() {
   const [inventory, setInventory] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [timeEntries, setTimeEntries] = useState([]);
+  const [shifts, setShifts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [adminActions, setAdminActions] = useState([]);
   const [executiveAiSummary, setExecutiveAiSummary] = useState("");
@@ -86,6 +87,11 @@ export default function App() {
   const [certificationExpiration, setCertificationExpiration] = useState("");
   const [managerNotes, setManagerNotes] = useState("");
   const [lastReviewDate, setLastReviewDate] = useState("");
+
+  const [shiftDate, setShiftDate] = useState("07-27-2026");
+  const [shiftStartTime, setShiftStartTime] = useState("08:00 AM");
+  const [shiftEndTime, setShiftEndTime] = useState("05:00 PM");
+  const [shiftRole, setShiftRole] = useState("General");
 
   useEffect(() => {
     checkStripeReturn();
@@ -412,6 +418,7 @@ export default function App() {
       const inv = await api("/inventory", "GET", null, activeToken);
       const emp = await api("/employees", "GET", null, activeToken);
       const timeEntryData = await api("/time-entries", "GET", null, activeToken);
+      const shiftData = await api("/shifts", "GET", null, activeToken);
       const rec = await api("/ai/recommendations", "GET", null, activeToken);
       const ord = await api("/orders", "GET", null, activeToken);
 
@@ -419,6 +426,7 @@ export default function App() {
       setInventory(inv);
       setEmployees(emp);
       setTimeEntries(timeEntryData);
+      setShifts(shiftData);
       setRecommendations(rec);
       setOrders(ord);
       setStatus("Refreshed successfully.");
@@ -763,6 +771,51 @@ export default function App() {
   }
 
 
+
+  async function scheduleShift(employee) {
+    try {
+      setStatus("Scheduling shift for " + employee.name + "...");
+      await api("/shifts", "POST", {
+        employeeId: employee.id,
+        shiftDate,
+        startTime: shiftStartTime,
+        endTime: shiftEndTime,
+        role: shiftRole,
+        status: "scheduled"
+      });
+      await loadAll();
+      setStatus("Shift scheduled for " + employee.name + ".");
+    } catch (e) {
+      setStatus("Shift scheduling error: " + e.message);
+      Alert.alert("Shift scheduling error", e.message);
+    }
+  }
+
+  async function updateShiftStatus(shift, status) {
+    try {
+      setStatus("Updating shift...");
+      await api("/shifts/" + shift.id + "/status", "PUT", { status });
+      await loadAll();
+      setStatus("Shift marked as " + status + ".");
+    } catch (e) {
+      setStatus("Shift update error: " + e.message);
+      Alert.alert("Shift update error", e.message);
+    }
+  }
+
+  async function deleteShift(shift) {
+    try {
+      setStatus("Deleting shift...");
+      await api("/shifts/" + shift.id, "DELETE");
+      await loadAll();
+      setStatus("Shift deleted.");
+    } catch (e) {
+      setStatus("Shift delete error: " + e.message);
+      Alert.alert("Shift delete error", e.message);
+    }
+  }
+
+
   if (!user) {
     return (
       <SafeAreaView style={styles.page}>
@@ -1055,7 +1108,49 @@ export default function App() {
               <Text style={styles.buttonText}>Add Employee</Text>
             </Pressable>
 
+            <View style={styles.row}>
+              <Text style={styles.rowTitle}>Shift Scheduler</Text>
+              <Text style={styles.rowText}>Set shift details, then tap Schedule Shift on an employee card.</Text>
+
+              <TextInput style={styles.input} value={shiftDate} onChangeText={setShiftDate} placeholder="Shift Date MM-DD-YYYY" placeholderTextColor="#718096" />
+              <TextInput style={styles.input} value={shiftStartTime} onChangeText={setShiftStartTime} placeholder="Start Time" placeholderTextColor="#718096" />
+              <TextInput style={styles.input} value={shiftEndTime} onChangeText={setShiftEndTime} placeholder="End Time" placeholderTextColor="#718096" />
+              <TextInput style={styles.input} value={shiftRole} onChangeText={setShiftRole} placeholder="Shift Role" placeholderTextColor="#718096" />
+
+              <Text style={styles.rowText}>AI Staffing Alert: {employees.length === 0 ? "Add employees before scheduling shifts." : shifts.length === 0 ? "No upcoming shifts scheduled." : "Upcoming shift coverage is active."}</Text>
+            </View>
+
+
             {employees.length === 0 && <Text style={styles.rowText}>No employees yet.</Text>}
+
+            {shifts.length > 0 && (
+              <View style={styles.row}>
+                <Text style={styles.rowTitle}>Upcoming Shifts</Text>
+                {shifts.slice(0, 8).map(shift => (
+                  <View key={shift.id} style={styles.row}>
+                    <Text style={styles.rowTitle}>{shift.employeeName}</Text>
+                    <Text style={styles.rowText}>Date: {formatDate(shift.shiftDate)}</Text>
+                    <Text style={styles.rowText}>Time: {shift.startTime} - {shift.endTime}</Text>
+                    <Text style={styles.rowText}>Role: {shift.role || "General"}</Text>
+                    <Text style={styles.rowText}>Status: {shift.status}</Text>
+
+                    <View style={styles.actionRow}>
+                      <Pressable style={styles.smallButton} onPress={() => updateShiftStatus(shift, "completed")}>
+                        <Text style={styles.buttonText}>Complete</Text>
+                      </Pressable>
+
+                      <Pressable style={styles.smallButton} onPress={() => updateShiftStatus(shift, "cancelled")}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                      </Pressable>
+
+                      <Pressable style={styles.employeeDeleteButton} onPress={() => deleteShift(shift)}>
+                        <Text style={styles.employeeDeleteText}>DELETE</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            )}
 
             {timeEntries.length > 0 && (
               <View style={styles.row}>
@@ -1110,6 +1205,10 @@ export default function App() {
 
                   <Pressable style={styles.approveButton} onPress={() => clockIn(emp)}>
                     <Text style={styles.buttonText}>Clock In</Text>
+                  </Pressable>
+
+                  <Pressable style={styles.smallButton} onPress={() => scheduleShift(emp)}>
+                    <Text style={styles.buttonText}>Schedule Shift</Text>
                   </Pressable>
 
                   <Pressable style={styles.smallButton} onPress={() => {

@@ -323,6 +323,21 @@ saveDb();
     createdAt TEXT NOT NULL
   )`);
 
+
+  // Workforce Management V2.1 Shift Scheduling schema
+  execute(`CREATE TABLE IF NOT EXISTS shifts (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    employeeId TEXT NOT NULL,
+    employeeName TEXT DEFAULT '',
+    shiftDate TEXT NOT NULL,
+    startTime TEXT NOT NULL,
+    endTime TEXT NOT NULL,
+    role TEXT DEFAULT '',
+    status TEXT DEFAULT 'scheduled',
+    createdAt TEXT NOT NULL
+  )`);
+
   app.get("/employees", auth, function(req, res) {
     res.json(selectAll("SELECT * FROM employees WHERE userId = ? ORDER BY createdAt DESC", [req.user.id]));
   });
@@ -469,6 +484,84 @@ saveDb();
     );
 
     res.json(saved);
+  });
+
+
+
+  app.get("/shifts", auth, function(req, res) {
+    const rows = selectAll(
+      "SELECT * FROM shifts WHERE userId = ? ORDER BY shiftDate ASC, startTime ASC LIMIT 200",
+      [req.user.id]
+    );
+    res.json(rows);
+  });
+
+  app.post("/shifts", auth, function(req, res) {
+    const employee = selectOne(
+      "SELECT * FROM employees WHERE id = ? AND userId = ?",
+      [req.body.employeeId, req.user.id]
+    );
+
+    if (!employee) return res.status(404).json({ error: "Employee not found" });
+
+    const shift = {
+      id: uuid(),
+      userId: req.user.id,
+      employeeId: employee.id,
+      employeeName: employee.name,
+      shiftDate: req.body.shiftDate || "",
+      startTime: req.body.startTime || "",
+      endTime: req.body.endTime || "",
+      role: req.body.role || employee.role || "",
+      status: req.body.status || "scheduled",
+      createdAt: new Date().toISOString()
+    };
+
+    if (!shift.shiftDate || !shift.startTime || !shift.endTime) {
+      return res.status(400).json({ error: "Shift date, start time, and end time are required." });
+    }
+
+    execute(
+      "INSERT INTO shifts (id, userId, employeeId, employeeName, shiftDate, startTime, endTime, role, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [shift.id, shift.userId, shift.employeeId, shift.employeeName, shift.shiftDate, shift.startTime, shift.endTime, shift.role, shift.status, shift.createdAt]
+    );
+
+    res.json(shift);
+  });
+
+  app.put("/shifts/:id/status", auth, function(req, res) {
+    const shift = selectOne(
+      "SELECT * FROM shifts WHERE id = ? AND userId = ?",
+      [req.params.id, req.user.id]
+    );
+
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+
+    const status = req.body.status || shift.status || "scheduled";
+
+    execute(
+      "UPDATE shifts SET status = ? WHERE id = ? AND userId = ?",
+      [status, req.params.id, req.user.id]
+    );
+
+    const saved = selectOne(
+      "SELECT * FROM shifts WHERE id = ? AND userId = ?",
+      [req.params.id, req.user.id]
+    );
+
+    res.json(saved);
+  });
+
+  app.delete("/shifts/:id", auth, function(req, res) {
+    const shift = selectOne(
+      "SELECT * FROM shifts WHERE id = ? AND userId = ?",
+      [req.params.id, req.user.id]
+    );
+
+    if (!shift) return res.status(404).json({ error: "Shift not found" });
+
+    execute("DELETE FROM shifts WHERE id = ? AND userId = ?", [req.params.id, req.user.id]);
+    res.json({ ok: true, deleted: shift });
   });
 
 
