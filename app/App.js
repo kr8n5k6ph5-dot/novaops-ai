@@ -4,6 +4,20 @@ import { SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet,
 const API = "https://novaops-ai-app.onrender.com";
 
 
+
+function screenLabel(tab) {
+  const labels = {
+    dashboard: "Home",
+    workforce: "Workforce",
+    operations: "Operations",
+    insights: "Insights",
+    ai: "AI Center",
+    admin: "Admin"
+  };
+
+  return labels[tab] || tab;
+}
+
 function formatDate(value) {
   if (!value) return "Not set";
 
@@ -852,8 +866,8 @@ export default function App() {
   }
 
   const tabs = user.role === "admin"
-    ? ["dashboard", "inventory", "orders", "payroll", "insights", "ai", "admin"]
-    : ["dashboard", "inventory", "orders", "payroll", "insights", "ai"];
+    ? ["dashboard", "workforce", "operations", "insights", "ai", "admin"]
+    : ["dashboard", "workforce", "operations", "insights", "ai"];
 
   return (
     <SafeAreaView style={styles.page}>
@@ -869,6 +883,12 @@ export default function App() {
           <Text style={styles.statusText}>{status}</Text>
         </View>
 
+        <View style={styles.osHero}>
+          <Text style={styles.osEyebrow}>NovaOps OS V3</Text>
+          <Text style={styles.osTitle}>Business Command Center</Text>
+          <Text style={styles.osSubtitle}>Manage workforce, operations, financials, and AI decisions from one organized system.</Text>
+        </View>
+
         <View style={styles.nav}>
           {tabs.map(tab => (
             <Pressable
@@ -879,7 +899,7 @@ export default function App() {
                 if (tab === "admin") await loadAdminActions();
               }}
             >
-              <Text style={styles.navText}>{tab.toUpperCase()}</Text>
+              <Text style={styles.navText}>{screenLabel(tab)}</Text>
             </Pressable>
           ))}
         </View>
@@ -887,6 +907,35 @@ export default function App() {
         {screen === "dashboard" && (
           <View style={styles.card}>
             <Text style={styles.title}>Business Dashboard</Text>
+
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Employees</Text>
+                <Text style={styles.kpiValue}>{employees.length}</Text>
+              </View>
+
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Inventory</Text>
+                <Text style={styles.kpiValue}>{inventory.length}</Text>
+              </View>
+
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Orders</Text>
+                <Text style={styles.kpiValue}>{orders.length}</Text>
+              </View>
+
+              <View style={styles.kpiCard}>
+                <Text style={styles.kpiLabel}>Shifts</Text>
+                <Text style={styles.kpiValue}>{shifts.length}</Text>
+              </View>
+            </View>
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Today at a Glance</Text>
+              <Text style={styles.sectionText}>A simplified snapshot of your people, inventory, and active business work.</Text>
+            </View>
+
+
 
             <View style={styles.row}>
               <Text style={styles.rowTitle}>Plan</Text>
@@ -945,9 +994,16 @@ export default function App() {
           </View>
         )}
 
-        {screen === "inventory" && (
+        {screen === "operations" && (
           <View style={styles.card}>
-            <Text style={styles.title}>Inventory</Text>
+            <Text style={styles.title}>Operations: Inventory</Text>
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Operations Center</Text>
+              <Text style={styles.sectionText}>Inventory, orders, vehicles, tasks, and appointments are grouped into daily operations.</Text>
+            </View>
+
+
 
             <TextInput style={styles.input} value={itemName} onChangeText={setItemName} placeholder="Item name" placeholderTextColor="#718096" />
             <TextInput style={styles.input} value={quantity} onChangeText={setQuantity} placeholder="Quantity" placeholderTextColor="#718096" keyboardType="numeric" />
@@ -1009,9 +1065,9 @@ export default function App() {
         )}
 
 
-        {screen === "orders" && (
+        {screen === "operations" && (
           <View style={styles.card}>
-            <Text style={styles.title}>Orders</Text>
+            <Text style={styles.title}>Operations: Orders</Text>
 
             <Pressable style={styles.button} onPress={() => loadAll()}>
               <Text style={styles.buttonText}>Refresh Orders</Text>
@@ -1046,9 +1102,16 @@ export default function App() {
           </View>
         )}
 
-        {screen === "payroll" && (
+        {screen === "workforce" && (
           <View style={styles.card}>
-            <Text style={styles.title}>Payroll</Text>
+            <Text style={styles.title}>Workforce Hub</Text>
+
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Workforce Management</Text>
+              <Text style={styles.sectionText}>Employees, payroll, attendance, certifications, time clock, and shift scheduling are now grouped here.</Text>
+            </View>
+
+
 
             {(() => {
               const employeeList = employees || [];
@@ -1748,4 +1811,80 @@ const styles = StyleSheet.create({
   approveButton: { backgroundColor: "#22C55E", padding: 10, borderRadius: 10, alignItems: "center", flex: 1 },
   rejectButton: { borderColor: "#F87171", borderWidth: 1, padding: 10, borderRadius: 10, alignItems: "center", flex: 1 },
   rejectText: { color: "#FCA5A5", fontWeight: "800" }
+,
+
+  osHero: {
+    backgroundColor: "#0F172A",
+    borderRadius: 24,
+    padding: 22,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: "#1E293B"
+  },
+  osEyebrow: {
+    color: "#38BDF8",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+    marginBottom: 6
+  },
+  osTitle: {
+    color: "#FFFFFF",
+    fontSize: 26,
+    fontWeight: "900",
+    marginBottom: 6
+  },
+  osSubtitle: {
+    color: "#CBD5E1",
+    fontSize: 15,
+    lineHeight: 22
+  },
+  kpiGrid: {
+    display: "flex",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 18
+  },
+  kpiCard: {
+    backgroundColor: "#EEF6FF",
+    borderRadius: 18,
+    padding: 16,
+    minWidth: "45%",
+    flexGrow: 1,
+    borderWidth: 1,
+    borderColor: "#BFDBFE"
+  },
+  kpiLabel: {
+    color: "#475569",
+    fontSize: 13,
+    fontWeight: "800",
+    marginBottom: 6,
+    textTransform: "uppercase"
+  },
+  kpiValue: {
+    color: "#0F172A",
+    fontSize: 28,
+    fontWeight: "900"
+  },
+  sectionHeader: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#E2E8F0"
+  },
+  sectionTitle: {
+    color: "#0F172A",
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 6
+  },
+  sectionText: {
+    color: "#475569",
+    fontSize: 14,
+    lineHeight: 20
+  },
 });
