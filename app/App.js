@@ -3,6 +3,24 @@ import { SafeAreaView, ScrollView, View, Text, TextInput, Pressable, StyleSheet,
 
 const API = "https://novaops-ai-app.onrender.com";
 
+
+function formatDate(value) {
+  if (!value) return "Not set";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${month}-${day}-${year}`;
+}
+
+
 export default function App() {
   const [token, setToken] = useState("");
   const [user, setUser] = useState(null);
@@ -1044,7 +1062,7 @@ export default function App() {
                 <Text style={styles.rowTitle}>Recent Time Entries</Text>
                 {timeEntries.slice(0, 5).map(entry => (
                   <Text key={entry.id} style={styles.rowText}>
-                    {entry.employeeName}: {entry.status} | In: {new Date(entry.clockInAt).toLocaleString()} {entry.clockOutAt ? "| Out: " + new Date(entry.clockOutAt).toLocaleString() + " | Hours: " + Number(entry.hoursWorked || 0).toFixed(2) : ""}
+                    {entry.employeeName}: {entry.status} | In: {formatDate(entry.clockInAt)} {entry.clockOutAt ? "| Out: " + formatDate(entry.clockOutAt) + " | Hours: " + Number(entry.hoursWorked || 0).toFixed(2) : ""}
                   </Text>
                 ))}
               </View>
@@ -1056,8 +1074,8 @@ export default function App() {
                 <Text style={styles.rowText}>${emp.payRate}/hour</Text>
                 <Text style={styles.rowText}>Attendance: {emp.attendancePercent || 0}%</Text>
                 <Text style={styles.rowText}>Certifications: {emp.certifications || "None"}</Text>
-                <Text style={styles.rowText}>Certification Exp: {emp.certificationExpiration || "Not set"}</Text>
-                <Text style={styles.rowText}>Review Date: {emp.lastReviewDate || "Not set"}</Text>
+                <Text style={styles.rowText}>Certification Exp: {formatDate(emp.certificationExpiration)}</Text>
+                <Text style={styles.rowText}>Review Date: {formatDate(emp.lastReviewDate)}</Text>
                 <Text style={styles.rowText}>Notes: {emp.managerNotes || "None"}</Text>
                 {(() => {
                   const openEntry = timeEntries.find(entry => entry.employeeId === emp.id && !entry.clockOutAt);
