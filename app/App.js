@@ -62,6 +62,12 @@ export default function App() {
   const [payRate, setPayRate] = useState("20");
   const [hours, setHours] = useState("40");
 
+  const [attendancePercent, setAttendancePercent] = useState("100");
+  const [certifications, setCertifications] = useState("");
+  const [certificationExpiration, setCertificationExpiration] = useState("");
+  const [managerNotes, setManagerNotes] = useState("");
+  const [lastReviewDate, setLastReviewDate] = useState("");
+
   useEffect(() => {
     checkStripeReturn();
     restoreSavedLogin();
@@ -566,7 +572,12 @@ export default function App() {
       await api("/employees", "POST", {
         name: employeeName,
         payRate,
-        payType: "hourly"
+        payType: "hourly",
+        attendancePercent,
+        certifications,
+        certificationExpiration,
+        managerNotes,
+        lastReviewDate
       });
       await loadAll();
       setStatus("Employee added.");
@@ -582,7 +593,12 @@ export default function App() {
       await api("/employees/" + employee.id, "PUT", {
         name: employeeName,
         payRate,
-        payType: "hourly"
+        payType: "hourly",
+        attendancePercent,
+        certifications,
+        certificationExpiration,
+        managerNotes,
+        lastReviewDate
       });
       await loadAll();
       setStatus("Employee updated.");
@@ -931,9 +947,59 @@ export default function App() {
           <View style={styles.card}>
             <Text style={styles.title}>Payroll</Text>
 
+            {(() => {
+              const employeeList = employees || [];
+
+              const averageAttendance = employeeList.length
+                ? Math.round(employeeList.reduce((sum, emp) => sum + Number(emp.attendancePercent || 0), 0) / employeeList.length)
+                : 0;
+
+              const attendanceRisks = employeeList.filter(emp => Number(emp.attendancePercent || 0) < 90).length;
+
+              const reviewsDue = employeeList.filter(emp => {
+                if (!emp.lastReviewDate) return true;
+                const lastReview = new Date(emp.lastReviewDate);
+                if (Number.isNaN(lastReview.getTime())) return true;
+                const daysSinceReview = (new Date() - lastReview) / (1000 * 60 * 60 * 24);
+                return daysSinceReview > 180;
+              }).length;
+
+              const expiringCertifications = employeeList.filter(emp => {
+                if (!emp.certificationExpiration) return false;
+                const expiration = new Date(emp.certificationExpiration);
+                if (Number.isNaN(expiration.getTime())) return false;
+                const daysUntilExpiration = (expiration - new Date()) / (1000 * 60 * 60 * 24);
+                return daysUntilExpiration >= 0 && daysUntilExpiration <= 60;
+              }).length;
+
+              const workforceHealth =
+                averageAttendance >= 95 && attendanceRisks === 0 && reviewsDue === 0
+                  ? "Excellent"
+                  : averageAttendance >= 90
+                    ? "Stable"
+                    : "Needs Attention";
+
+              return (
+                <View style={styles.row}>
+                  <Text style={styles.rowTitle}>AI Workforce Insights</Text>
+                  <Text style={styles.rowText}>Workforce Health: {workforceHealth}</Text>
+                  <Text style={styles.rowText}>Average Attendance: {averageAttendance}%</Text>
+                  <Text style={styles.rowText}>Attendance Risks: {attendanceRisks}</Text>
+                  <Text style={styles.rowText}>Reviews Needed: {reviewsDue}</Text>
+                  <Text style={styles.rowText}>Certifications Expiring Soon: {expiringCertifications}</Text>
+                </View>
+              );
+            })()}
+
             <TextInput style={styles.input} value={employeeName} onChangeText={setEmployeeName} placeholder="Employee name" placeholderTextColor="#718096" />
             <TextInput style={styles.input} value={payRate} onChangeText={setPayRate} placeholder="Hourly pay rate" placeholderTextColor="#718096" keyboardType="numeric" />
             <TextInput style={styles.input} value={hours} onChangeText={setHours} placeholder="Hours" placeholderTextColor="#718096" keyboardType="numeric" />
+
+            <TextInput style={styles.input} value={attendancePercent} onChangeText={setAttendancePercent} placeholder="Attendance %" placeholderTextColor="#718096" keyboardType="numeric" />
+            <TextInput style={styles.input} value={certifications} onChangeText={setCertifications} placeholder="Certifications" placeholderTextColor="#718096" />
+            <TextInput style={styles.input} value={certificationExpiration} onChangeText={setCertificationExpiration} placeholder="Certification Expiration YYYY-MM-DD" placeholderTextColor="#718096" />
+            <TextInput style={styles.input} value={lastReviewDate} onChangeText={setLastReviewDate} placeholder="Last Review Date YYYY-MM-DD" placeholderTextColor="#718096" />
+            <TextInput style={styles.input} value={managerNotes} onChangeText={setManagerNotes} placeholder="Manager Notes" placeholderTextColor="#718096" multiline />
 
             <Pressable style={styles.button} onPress={addEmployee}>
               <Text style={styles.buttonText}>Add Employee</Text>
@@ -945,11 +1011,21 @@ export default function App() {
               <View key={emp.id} style={styles.row}>
                 <Text style={styles.rowTitle}>{emp.name}</Text>
                 <Text style={styles.rowText}>${emp.payRate}/hour</Text>
+                <Text style={styles.rowText}>Attendance: {emp.attendancePercent || 0}%</Text>
+                <Text style={styles.rowText}>Certifications: {emp.certifications || "None"}</Text>
+                <Text style={styles.rowText}>Certification Exp: {emp.certificationExpiration || "Not set"}</Text>
+                <Text style={styles.rowText}>Review Date: {emp.lastReviewDate || "Not set"}</Text>
+                <Text style={styles.rowText}>Notes: {emp.managerNotes || "None"}</Text>
 
                 <View style={styles.actionRow}>
                   <Pressable style={styles.smallButton} onPress={() => {
                     setEmployeeName(emp.name);
                     setPayRate(String(emp.payRate));
+                    setAttendancePercent(String(emp.attendancePercent || "100"));
+                    setCertifications(emp.certifications || "");
+                    setCertificationExpiration(emp.certificationExpiration || "");
+                    setManagerNotes(emp.managerNotes || "");
+                    setLastReviewDate(emp.lastReviewDate || "");
                     setStatus("Loaded " + emp.name + " into edit form.");
                   }}>
                     <Text style={styles.buttonText}>Load</Text>
